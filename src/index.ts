@@ -9,7 +9,6 @@ async function startServer() {
         await AppDataSource.initialize();
         console.log("PostgreSQL connected");
 
-        await redis.connect();
         console.log("Redis connected");
 
         const app = express();
@@ -17,7 +16,7 @@ async function startServer() {
         app.use(routes);
 
         app.listen(config.app.port, () => {
-            console.log(`🚀 Server running at http://localhost:${config.app.port}`);
+            console.log(`Server running at http://localhost:${config.app.port}`);
         });
     } catch (error) {
         console.error("Error starting server:", error);
