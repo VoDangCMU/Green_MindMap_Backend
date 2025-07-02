@@ -1,0 +1,1 @@
+export default ['user', 'staff', 'admin'] as const;
