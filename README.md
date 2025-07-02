@@ -5,13 +5,19 @@
 yanr install
 ```
 
-### 2. Khởi động database & cache database
+### 2. Tạo file .env
+```bash
+touch .env
+```
+- hoặc thêm file `.env` ở thư mục gốc dự án
+
+### 3. Khởi động database & cache database
 ```bash
 source .env
 docker compose up -d
 ```
 
-### 3. Chạy dự án
+### 4. Chạy dự án
 ```bash
 yarn dev
 ```
