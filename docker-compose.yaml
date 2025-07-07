@@ -1,29 +1,30 @@
 version: '3.8'
 services:
-  #  green_mindmap_be:
-  #    image: green_mindmap_be:latest
-  #    container_name: green_mindmap_be
-  #    build:
-  #      context: .
-  #      dockerfile: Dockerfile
-  #    ports:
-  #      - "8000:8000"
-  #    environment:
-  #      - DATABASE_URL=postgresql://user:password@db:5432/green_mindmap
-  #      - REDIS_URL=redis://redis:6379/0
-  #    depends_on:
-  #      - db
-  #      - redis
-
   postgres:
     image: postgres:latest
-    container_name: postgres
+    container_name: vodang-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 12345678
       POSTGRES_DB: green_mindmap_db
     ports:
-      - "5432:5432"
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: my-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@vodang.com
+      PGADMIN_DEFAULT_PASSWORD: 12345678
+    ports:
+      - "85:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    restart: unless-stopped
 
   redis:
     image: redis:latest
@@ -32,3 +33,7 @@ services:
       REDIS_PASSWORD: 12345678
     ports:
       - "6379:6379"
+
+volumes:
+  pgadmin_data:
+  postgres_data:

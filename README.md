@@ -2,7 +2,7 @@
 
 ### 1. Cài đặt các package cần thiết
 ```bash
-yanr install
+yarn install
 ```
 
 ### 2. Tạo file .env
