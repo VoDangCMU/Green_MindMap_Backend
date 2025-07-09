@@ -7,6 +7,7 @@ const envSchema = z.object({
     app: z.object({
         port: z.coerce.number().default(3000),
         env: z.enum(["development", "production", "test"]).default("development"),
+        host : z.string().default("localhost"),
     }),
 
     db: z.object({
@@ -29,6 +30,7 @@ const parsed = envSchema.safeParse({
     app: {
         port: process.env.PORT || 5000,
         env: process.env.ENV || "development",
+        host: process.env.HOST || "localhost",
     },
     db: {
         host: process.env.DB_HOST || "localhost",

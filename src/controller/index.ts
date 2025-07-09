@@ -1,12 +1,7 @@
-import { healthCheckController } from "./check.controller";
+import health from "./health.controller";
+// import user from "./user.controller";
 
-export class Controller {
-    private static instance: Controller;
-
-    getHealthCheckController() {
-        return healthCheckController;
-    }
-
-}
-
-export default Controller;
+export default {
+    health,
+    // user,
+};
