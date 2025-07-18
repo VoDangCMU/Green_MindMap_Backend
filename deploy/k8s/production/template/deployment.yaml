@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: green-mind-backend-deployment
+  namespace: vo-dang-${DEPLOY_ENV}-env
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: green-mind-backend
+  template:
+    metadata:
+      labels:
+        app: green-mind-backend
+    spec:
+      containers:
+        - name: green-mind-backend
+          image: iamqbao/green_mind_backend:latest
+          envFrom:
+            - configMapRef:
+                name: vo-dang-${DEPLOY_ENV}-config
+            - secretRef:
+                name: vo-dang-${DEPLOY_ENV}-secret
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "500Mi"
+            limits:
+              cpu: "800m"
+              memory: "1Gi"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+  namespace: vo-dang-${DEPLOY_ENV}-env
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-service
+  template:
+    metadata:
+      labels:
+        app: redis-service
+    spec:
+      containers:
+        - name: redis-service
+          image: redis:7.2-alpine
+          resources:
+            requests:
+              cpu: "300m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-deployment
+  namespace: vo-dang-${DEPLOY_ENV}-env
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-service
+  template:
+    metadata:
+      labels:
+        app: postgres-service
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_INITDB_ARGS
+              value: "--auth=trust"
+          envFrom:
+            - configMapRef:
+                name: vo-dang-${DEPLOY_ENV}-config
+            - secretRef:
+                name: vo-dang-${DEPLOY_ENV}-secret
+          resources:
+            requests:
+              cpu: "0.5"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+
+---

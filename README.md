@@ -14,6 +14,9 @@ touch .env
 ### 3. Khởi động database & cache database
 ```bash
 source .env
+
+cd deploy/docker
+
 docker compose up -d
 ```
 
