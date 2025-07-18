@@ -19,7 +19,7 @@ RUN apk add --no-cache \
 COPY --from=builder /home/node/app/dist ./dist
 COPY --from=builder /home/node/app/package.json ./
 COPY --from=builder /home/node/app/yarn.lock ./
-COPY migrations ./migrations
+#COPY migrations ./migrations
 COPY entrypoint.sh .
 
 RUN chmod +x entrypoint.sh
