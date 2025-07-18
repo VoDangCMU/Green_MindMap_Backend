@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: green-mind-backend-service
+  namespace: vo-dang-${DEPLOY_ENV}-env
+spec:
+  selector:
+    app: green-mind-backend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: vo-dang-${DEPLOY_ENV}-env
+spec:
+  selector:
+    app: redis-service
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: vo-dang-${DEPLOY_ENV}-env
+spec:
+  selector:
+    app: postgres-service
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP

@@ -1,6 +1,6 @@
 version: '3.8'
 services:
-  postgres:
+  vodang-postgres:
     image: postgres:latest
     container_name: vodang-postgres
     environment:
