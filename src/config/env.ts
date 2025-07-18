@@ -7,43 +7,65 @@ const envSchema = z.object({
     app: z.object({
         port: z.coerce.number().default(3000),
         env: z.enum(["development", "production", "test"]).default("development"),
-        host : z.string().default("localhost"),
+        host: z.string().default("localhost"),
     }),
 
     db: z.object({
-        host: z.string().default("localhost"),
+        host: z.string(),
         port: z.coerce.number().default(5432),
-        username: z.string().default("postgres"),
-        password: z.string().default("postgres"),
-        name: z.string().default("green_mindmap_db"),
+        username: z.string(),
+        password: z.string(),
+        name: z.string(),
+        url: z.string().optional(),
     }),
 
     redis: z.object({
-        host: z.string().default("localhost"),
+        host: z.string(),
         port: z.coerce.number().default(6379),
         password: z.string().optional(),
         db: z.coerce.number().default(0),
+    }),
+
+    jwt: z.object({
+        algorithm: z.string().default("HS256"),
+        expire: z.string().default("1h"),
+        secretKey: z.string(),
+    }),
+
+    security: z.object({
+        allowedDomains: z.string().optional(),
+        globalDomain: z.string().optional(),
     }),
 });
 
 const parsed = envSchema.safeParse({
     app: {
-        port: process.env.PORT || 5000,
-        env: process.env.ENV || "development",
+        port: process.env.PORT,
+        env: process.env.DEPLOY_ENV,
         host: process.env.HOST || "localhost",
     },
     db: {
-        host: process.env.DB_HOST || "localhost",
-        port: parseInt(process.env.DB_PORT || "5432", 10),
-        username: process.env.DB_USERNAME || "postgres",
-        password: process.env.DB_PASSWORD || "postgres",
-        name: process.env.DB_NAME || "gau_db",
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT,
+        username: process.env.DB_USERNAME,
+        password: process.env.DB_PASSWORD,
+        name: process.env.DB_NAME,
+        url: process.env.DB_URL,
     },
     redis: {
-        host: process.env.REDIS_HOST || "localhost",
-        port: parseInt(process.env.REDIS_PORT || "6379", 10),
-        password: process.env.REDIS_PASSWORD || undefined,
-        db: parseInt(process.env.REDIS_DB || "0", 10),
+        host: process.env.REDIS_ADDRESS,
+        port: process.env.REDIS_PORT,
+        password: process.env.REDIS_PASSWORD,
+        db: process.env.REDIS_DB,
+    },
+    jwt: {
+        algorithm: process.env.JWT_ALGORITHM,
+        expire: process.env.JWT_EXPIRE,
+        secretKey: process.env.JWT_SECRET_KEY,
+    },
+    security: {
+        allowedDomains: process.env.ALLOWED_DOMAINS,
+        globalDomain: process.env.GLOBAL_DOMAIN,
     },
 });
 
