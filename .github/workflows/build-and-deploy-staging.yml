@@ -51,21 +51,21 @@ jobs:
           sudo tailscale up --authkey ${{ secrets.TAILSCALE_AUTH_KEY }}
           sleep 5
 
-      - name: Set up SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
 
       - name: Download .env from server
+        env:
+          SSHPASS: ${{ secrets.SERVER_PASSWORD }}
         run: |
-          scp ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/tnqbao/.enviroment/green-mind-backend/staging.env ./deploy/k8s/staging/.env
+          sshpass -p "$SSHPASS" scp -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/tnqbao/.enviroment/green-mind-backend/staging.env ./deploy/k8s/staging/.env
 
       - name: Download kubeconfig.yaml from server
+        env:
+          SSHPASS: ${{ secrets.SERVER_PASSWORD }}
         run: |
           mkdir -p ./deploy/k8s/staging
-          scp ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/.secret/k8s/kubeconfig.yaml ./deploy/k8s/staging/kubeconfig.yaml
+          sshpass -p "$SSHPASS" scp -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/.secret/k8s/kubeconfig.yaml ./deploy/k8s/staging/kubeconfig.yaml
 
       - name: Set KUBECONFIG environment variable
         run: echo "KUBECONFIG=$GITHUB_WORKSPACE/deploy/k8s/staging/kubeconfig.yaml" >> $GITHUB_ENV
