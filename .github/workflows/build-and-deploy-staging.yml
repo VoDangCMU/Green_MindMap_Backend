@@ -80,3 +80,9 @@ jobs:
       - name: Apply manifests to Kubernetes
         working-directory: ./deploy/k8s/staging
         run: ./apply.sh
+
+      - name: Restart pods
+        run: |
+          kubectl rollout restart deployment green-mind-backend-deployment
+          kubectl rollout status deployment green-mind-backend-deployment
+          kubectl get pods -l app=green-mind-backend

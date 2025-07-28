@@ -12,7 +12,9 @@
     "paths": {
       "@root/*": ["*"]
     },
-    "types": ["node"]
+    "types": ["node"],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
