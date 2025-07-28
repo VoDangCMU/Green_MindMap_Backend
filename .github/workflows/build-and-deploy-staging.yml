@@ -83,6 +83,6 @@ jobs:
 
       - name: Restart pods
         run: |
-          kubectl rollout restart deployment green-mind-backend-deployment
-          kubectl rollout status deployment green-mind-backend-deployment
-          kubectl get pods -l app=green-mind-backend
+          kubectl rollout restart deployment green-mind-backend-deployment -n vo-dang-staging-env
+          kubectl rollout status deployment green-mind-backend-deployment -n vo-dang-staging-env
+          kubectl get pods -n vo-dang-staging-env -l app=green-mind-backend
