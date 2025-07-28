@@ -6,7 +6,7 @@ dotenv.config();
 const envSchema = z.object({
     app: z.object({
         port: z.coerce.number().default(3000),
-        env: z.enum(["development", "production", "test"]).default("development"),
+        env: z.enum(["development", "production", "staging","test"]).default("development"),
         host: z.string().default("localhost"),
     }),
 
