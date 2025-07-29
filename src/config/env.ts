@@ -53,7 +53,7 @@ const parsed = envSchema.safeParse({
         url: process.env.DB_URL,
     },
     redis: {
-        host: process.env.REDIS_ADDRESS,
+        host: process.env.REDIS_HOST,
         port: process.env.REDIS_PORT,
         password: process.env.REDIS_PASSWORD,
         db: process.env.REDIS_DB,
