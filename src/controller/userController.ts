@@ -1,20 +1,21 @@
-import { Request, Response } from "express";
+import { Request, Response, RequestHandler } from "express";
 import repository from "@root/repository";
 
 export class UserController {
-
-    public LoginWithEmail = async (req: Request, res: Response) => {
+    public LoginWithEmail: RequestHandler = async (req: Request, res: Response) => {
         const { email, password } = req.body;
         if (!email || !password) {
-            return res.status(400).json({ message: "Email and password are required" });
+            res.status(400).json({ message: "Email and password are required" });
+            return;
         }
 
         const user = await repository.user.findByEmailAndPassword(email, password);
         if (!user) {
-            return res.status(400).json({ message: "Invalid email or password" });
+            res.status(400).json({ message: "Invalid email or password" });
+            return;
         }
 
-        return res.status(200).json({ message: "Login successful", user });
+        res.status(200).json({ message: "Login successful", user });
     };
 }
 

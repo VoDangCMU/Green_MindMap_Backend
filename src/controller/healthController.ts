@@ -1,9 +1,9 @@
-import { Request, Response } from "express";
+import { Request, RequestHandler, Response } from "express";
 
 export class CheckHeathController {
-    public checkHealth(req: Request, res: Response) {
+    public checkHealth: RequestHandler = (req: Request, res: Response) => {
         res.json({ message: "ok" });
-    }
+    };
 }
 
 export default new CheckHeathController();

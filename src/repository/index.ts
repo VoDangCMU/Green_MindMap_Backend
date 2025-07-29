@@ -1,5 +1,5 @@
-import userRepository from "./userRepository";
+import user from "./userRepository";
 
 export default {
-    user: userRepository,
+    user,
 };
