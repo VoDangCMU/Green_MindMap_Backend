@@ -1,14 +1,14 @@
 version: '3.8'
 services:
-  vodang-postgres:
+  postgres:
     image: postgres:latest
-    container_name: vodang-postgres
+    container_name: postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 12345678
       POSTGRES_DB: green_mindmap_db
     ports:
-      - "5435:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -19,7 +19,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@vodang.com
       PGADMIN_DEFAULT_PASSWORD: 12345678
     ports:
-      - "85:80"
+      - "80:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     depends_on:
