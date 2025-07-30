@@ -1,5 +1,5 @@
 import { Redis } from 'ioredis';
-import { logger } from '../infrastructure/logger';
+// import { logger } from '../infrastructure/logger';
 
 const BITMAP_KEY = 'bitmap:id_pool';
 const BLACKLIST_KEY = 'bitmap:blacklist';
@@ -49,12 +49,11 @@ export class BitmapRepository {
         for (let id = 0; id < maxId; id++) {
             const bit = await this.cache.getbit(BITMAP_KEY, id);
             if (bit === 1 && !activeIDs.has(id)) {
-                logger.info(`Clearing stale bit at ${id}`);
+                // logger.info(`Clearing stale bit at ${id}`);
                 await this.cache.setbit(BITMAP_KEY, id, 0);
             }
         }
-
-        logger.info('Bitmap cleanup complete.');
+        // logger.info('Bitmap cleanup complete.');
     }
 }
 
