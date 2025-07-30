@@ -28,7 +28,7 @@ const envSchema = z.object({
 
     jwt: z.object({
         algorithm: z.string().default("HS256"),
-        expire: z.number().default(10000),
+        expire: z.string().default("1h"),
         secretKey: z.string(),
     }),
 

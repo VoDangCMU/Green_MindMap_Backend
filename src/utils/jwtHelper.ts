@@ -17,7 +17,8 @@ export class JWTHelper {
     public static createAccessToken(payload: JWTPayload): string {
         const options: jwt.SignOptions = {
             algorithm: config.jwt.algorithm as jwt.Algorithm,
-            expiresIn: config.jwt.expire        };
+            expiresIn: '1d'
+        };
 
         return jwt.sign(payload, config.jwt.secretKey, options);
     }
@@ -25,7 +26,7 @@ export class JWTHelper {
     public static createRefreshToken(payload: JWTPayload): string {
         const options: jwt.SignOptions = {
             algorithm: config.jwt.algorithm as jwt.Algorithm,
-            expiresIn: '7d'
+            expiresIn: '30d'
         };
 
         return jwt.sign(payload, config.jwt.secretKey, options);
