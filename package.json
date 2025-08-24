@@ -6,12 +6,17 @@
   "scripts": {
     "dev": "nodemon --watch src --ext ts --exec tsx src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "migration:run": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d src/infrastructure/database.ts",
+    "migration:generate": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate src/migrations/AutoMigration -d src/infrastructure/database.ts",
+    "migration:create": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:create src/migrations/NewMigration -d src/infrastructure/database.ts",
+    "migration:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d src/infrastructure/database.ts"
   },
   "dependencies": {
     "dotenv": "^17.0.1",
     "express": "^5.1.0",
     "ioredis": "^5.6.1",
+    "jsonwebtoken": "^9.0.2",
     "pg": "^8.16.3",
     "pino": "^9.7.0",
     "redis": "^5.5.6",
@@ -21,8 +26,11 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.0.10",
     "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   }

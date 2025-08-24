@@ -1,4 +1,4 @@
-import { config } from "@root/config/env";
+import { config } from "../config/env";
 import { DataSource } from "typeorm";
 
 export const AppDataSource = new DataSource({
@@ -8,6 +8,8 @@ export const AppDataSource = new DataSource({
     username: config.db.username,
     password: config.db.password,
     database: config.db.name,
-    entities: ["src/entity/**/*.ts"],
+    entities: [__dirname + "/../entity/**/*.{ts,js}"],
+    migrations: [__dirname + "/../migrations/*.{ts,js}"],
     synchronize: false,
+    logging: true,
 });

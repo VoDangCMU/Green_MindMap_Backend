@@ -1,7 +1,9 @@
-import health from "./health.controller";
-// import user from "./user.controller";
+import health from "./healthController";
+import user from "./userController";
+import token from "./tokenController";
 
 export default {
     health,
-    // user,
+    user,
+    token
 };

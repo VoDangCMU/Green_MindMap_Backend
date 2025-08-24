@@ -6,7 +6,7 @@ dotenv.config();
 const envSchema = z.object({
     app: z.object({
         port: z.coerce.number().default(3000),
-        env: z.enum(["development", "production", "test"]).default("development"),
+        env: z.enum(["development", "production", "staging","test"]).default("development"),
         host: z.string().default("localhost"),
     }),
 
@@ -53,7 +53,7 @@ const parsed = envSchema.safeParse({
         url: process.env.DB_URL,
     },
     redis: {
-        host: process.env.REDIS_ADDRESS,
+        host: process.env.REDIS_HOST,
         port: process.env.REDIS_PORT,
         password: process.env.REDIS_PASSWORD,
         db: process.env.REDIS_DB,

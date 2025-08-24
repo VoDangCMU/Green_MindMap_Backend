@@ -14,15 +14,6 @@ FROM node:18-alpine AS runtime
 
 WORKDIR /home/node/app
 
-RUN apk add --no-cache \
-    bash \
-    curl \
-    ca-certificates \
-  && curl -L https://github.com/golang-migrate/migrate/releases/download/v4.18.3/migrate.linux-amd64.tar.gz \
-    | tar xvz -C /tmp \
-  && mv /tmp/migrate /usr/local/bin/migrate \
-  && chmod +x /usr/local/bin/migrate
-
 COPY --from=builder /home/node/app/dist ./dist
 COPY --from=builder /home/node/app/package.json ./
 COPY --from=builder /home/node/app/yarn.lock ./
