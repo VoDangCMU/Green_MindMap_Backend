@@ -7,9 +7,9 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn
 } from "typeorm";
-import {Template} from "@root/entity/templates";
-import {ThreadHall} from "@root/entity/thread_halls";
-import {UserAnswers} from "@root/entity/user_answers";
+import {Template} from "./templates";
+import {ThreadHall} from "./thread_halls";
+import {UserAnswers} from "./user_answers";
 
 export const QUESTIONS_TABLE_NAME = 'questions';
 

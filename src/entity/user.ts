@@ -1,8 +1,8 @@
 import {Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, OneToOne} from 'typeorm';
-import {Locations} from "@root/entity/locations";
-import {BigFive} from "@root/entity/big_five";
-import {Scans} from "@root/entity/scans";
-import {Invoices} from "@root/entity/invoices";
+import {Locations} from "./locations";
+import {BigFive} from "./big_five";
+import {Scans} from "./scans";
+import {Invoices} from "./invoices";
 
 @Entity('users')
 export class User {

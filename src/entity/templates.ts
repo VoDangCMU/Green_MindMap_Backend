@@ -1,5 +1,5 @@
 import {Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn} from "typeorm";
-import {Questions} from "@root/entity/questions";
+import {Questions} from "./questions";
 
 export const TEMPLATES_TABLE_NAME = 'templates';
 

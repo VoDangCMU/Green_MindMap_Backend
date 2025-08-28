@@ -1,5 +1,5 @@
 import {Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn} from "typeorm";
-import {FoodItems} from "@root/entity/food_items";
+import {FoodItems} from "./food_items";
 
 export const CALORIES_TABLE_NAME = 'calories';
 

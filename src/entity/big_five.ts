@@ -7,7 +7,7 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn
 } from "typeorm";
-import {User} from "@root/entity/user";
+import {User} from "./user";
 
 export const BIG_FIVE_TABLE_NAME = 'big_five'
 

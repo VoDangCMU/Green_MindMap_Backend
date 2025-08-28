@@ -7,9 +7,9 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn
 } from "typeorm";
-import {FoodItems} from "@root/entity/food_items";
-import {User} from "@root/entity/user";
-import {Invoices} from "@root/entity/invoices";
+import {FoodItems} from "./food_items";
+import {User} from "./user";
+import {Invoices} from "./invoices";
 
 
 export const SCANS_TABLE_NAME = 'scans';

@@ -1,5 +1,5 @@
 import {Column, Entity, OneToMany, PrimaryGeneratedColumn} from "typeorm";
-import {ThreadHall} from "@root/entity/thread_halls";
+import {ThreadHall} from "./thread_halls";
 
 
 export const TRAITS_TABLE_NAME = 'traits'
