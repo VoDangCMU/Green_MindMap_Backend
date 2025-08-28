@@ -7,8 +7,8 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn
 } from "typeorm";
-import {Calories} from "@root/entity/calories";
-import {Scans} from "@root/entity/scans";
+import {Calories} from "./calories";
+import {Scans} from "./scans";
 
 export const FOOD_ITEMS_TABLE_NAME = 'food_items';
 

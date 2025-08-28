@@ -7,9 +7,9 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn
 } from "typeorm";
-import {Behavior} from "@root/entity/behaviors";
-import {Questions} from "@root/entity/questions";
-import {Traits} from "@root/entity/traits";
+import {Behavior} from "./behaviors";
+import {Questions} from "./questions";
+import {Traits} from "./traits";
 
 export const THREAD_HALLS_TABLE_NAME = 'thread_halls';
 
@@ -39,4 +39,3 @@ export class ThreadHall {
     @OneToMany(() => Behavior, behavior => behavior.threadHall)
     behaviors!: Behavior[];
 }
-
