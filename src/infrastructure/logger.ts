@@ -4,6 +4,8 @@ import {
   LoggerProvider,
   BatchLogRecordProcessor,
 } from '@opentelemetry/sdk-logs';
+import { Resource } from '@opentelemetry/resources';
+import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import { config } from '../config/env';
 
 const SCHEMA_NAME = 'https://github.com/grafana/docker-otel-lgtm';
@@ -24,20 +26,44 @@ export class LoggerClient {
   }
 
   private initializeOpenTelemetry(): void {
-    console.log(
+    try {
+      console.log(
         `Initializing OpenTelemetry with service name: ${config.grafana.serviceName}`
-    );
+      );
+      console.log(`OTLP endpoint: ${config.grafana.otlpEndpoint}/v1/logs`);
 
-    const logExporter = new OTLPLogExporter({
-      url: `${config.grafana.otlpEndpoint}/v1/logs`,
-      headers: {
-        'Content-Type': 'application/x-protobuf',
-      },
-    });
 
-    this.loggerProvider = new LoggerProvider({
-      processors: [new BatchLogRecordProcessor(logExporter)],
-    });
+      const resource = new Resource({
+        [SemanticResourceAttributes.SERVICE_NAME]: config.grafana.serviceName,
+        [SemanticResourceAttributes.SERVICE_VERSION]: '1.0.0',
+        [SemanticResourceAttributes.SERVICE_NAMESPACE]: 'green-mindmap',
+        [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: config.app.env,
+      });
+
+      const logExporter = new OTLPLogExporter({
+        url: `${config.grafana.otlpEndpoint}/v1/logs`,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      this.loggerProvider = new LoggerProvider({
+        resource: resource,
+      });
+
+      const batchProcessor = new BatchLogRecordProcessor(logExporter, {
+        scheduledDelayMillis: 500,
+        maxExportBatchSize: 1,
+        maxQueueSize: 10,
+        exportTimeoutMillis: 10000,
+      });
+
+      this.loggerProvider.addLogRecordProcessor(batchProcessor);
+
+      console.log('OpenTelemetry logger initialized successfully');
+    } catch (err) {
+      console.error('Failed to initialize OpenTelemetry logger:', err);
+    }
   }
 
   info(message: string, fields?: LogFields): void {
@@ -61,41 +87,48 @@ export class LoggerClient {
     this.log('DEBUG', message, fields);
   }
 
-  private log(level: string, message: string, fields?: LogFields): void {
-    const span = api.trace.getActiveSpan();
-    const logFields: LogFields = {
-      service_name: config.grafana.serviceName, // Explicitly set service_name
-      service: config.grafana.serviceName,
-      environment: config.app.env,
-      ...fields,
-    };
+  private async sendLogDirect(level: string, message: string, fields?: LogFields): Promise<void> {
+    try {
+      const logData = {
+        resourceLogs: [{
+          resource: {
+            attributes: [
+              { key: 'service.name', value: { stringValue: config.grafana.serviceName } },
+              { key: 'service.version', value: { stringValue: '1.0.0' } },
+              { key: 'service.namespace', value: { stringValue: 'green-mindmap' } },
+              { key: 'deployment.environment', value: { stringValue: config.app.env } }
+            ]
+          },
+          scopeLogs: [{
+            scope: { name: SCHEMA_NAME },
+            logRecords: [{
+              severityText: level,
+              body: { stringValue: message },
+              timeUnixNano: String(Date.now() * 1000000),
+              attributes: Object.entries({ environment: config.app.env, ...fields }).map(([key, value]) => ({
+                key,
+                value: { stringValue: String(value) }
+              }))
+            }]
+          }]
+        }]
+      };
 
-    if (span) {
-      const spanContext = span.spanContext();
-      logFields.traceId = spanContext.traceId;
-      logFields.spanId = spanContext.spanId;
-    }
-
-    if (this.loggerProvider) {
-      const logger = this.loggerProvider.getLogger(SCHEMA_NAME);
-      logger.emit({
-        severityText: level,
-        body: message,
-        attributes: {
-          'service.name': config.grafana.serviceName, // OpenTelemetry standard attribute
-          'service.version': '1.0.0',
-          'service.namespace': 'green-mindmap',
-          'deployment.environment': config.app.env,
-          ...logFields,
-        },
-        timestamp: Date.now(),
+      const response = await fetch(`${config.grafana.otlpEndpoint}/v1/logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(logData),
       });
+    } catch (err) {
+      console.error('[ERROR] Direct log failed:', err);
     }
+  }
 
-    if (config.app.env === 'development') {
-      const timestamp = new Date().toISOString();
-      const fieldsStr = fields ? ` ${JSON.stringify(fields)}` : '';
-      console.log(`[${timestamp}] ${level}: ${message}${fieldsStr}`);
+  private log(level: string, message: string, fields?: LogFields): void {
+    try {
+      this.sendLogDirect(level, message, fields);
+    } catch (err) {
+      console.error('[ERROR] Failed to emit log:', err);
     }
   }
 
@@ -158,3 +191,5 @@ export function getLogger(): LoggerClient {
   }
   return loggerInstance;
 }
+
+export const logger = initLogger();
