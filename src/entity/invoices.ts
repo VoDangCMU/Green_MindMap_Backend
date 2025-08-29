@@ -1,6 +1,6 @@
 import {Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn} from "typeorm";
-import {User} from "@root/entity/user";
-import {Scans} from "@root/entity/scans";
+import {User} from "./user";
+import {Scans} from "./scans";
 
 export const INVOICES_TABLE_NAME = 'invoices';
 

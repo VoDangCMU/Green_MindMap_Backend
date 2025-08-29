@@ -1,5 +1,5 @@
 import {Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn} from "typeorm";
-import {ThreadHall} from "@root/entity/thread_halls";
+import {ThreadHall} from "./thread_halls";
 
 export const BEHAVIORS_TABLE_NAME = 'behaviors';
 

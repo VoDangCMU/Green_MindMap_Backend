@@ -1,5 +1,5 @@
 import {Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn} from "typeorm";
-import {User} from "@root/entity/user";
+import {User} from "./user";
 
 export const LOCATIONS_TABLE_NAME = 'locations';
 

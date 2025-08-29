@@ -2,8 +2,8 @@ import {
     Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn, PrimaryGeneratedColumn,
     UpdateDateColumn
 } from "typeorm";
-import {User} from "@root/entity/user";
-import {Questions} from "@root/entity/questions";
+import {User} from "./user";
+import {Questions} from "./questions";
 
 
 export const USER_ANSWERS_TABLE_NAME = 'user_answers';
