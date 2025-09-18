@@ -25,4 +25,8 @@ export class Behavior {
 
     @UpdateDateColumn({type: 'timestamp'})
     updatedAt!: Date;
+
+    @Column({type: 'text', nullable: true} )
+    description?: string;
+
 }
