@@ -13,3 +13,6 @@ export const AppDataSource = new DataSource({
     synchronize: false,
     logging: true,
 });
+
+// Export default for TypeORM CLI
+export default AppDataSource;
