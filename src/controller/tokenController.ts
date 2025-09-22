@@ -11,7 +11,7 @@ export class TokenController {
         }
 
         try {
-            const payload = JWTHelper.verifyToken(refreshToken);
+            const payload = JWTHelper.verifyRefreshToken(refreshToken);
 
             if (!payload) {
                 res.status(401).json({ message: "Invalid or expired refresh token" });

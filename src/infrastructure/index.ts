@@ -16,7 +16,13 @@ export class Infrastructure {
     }
 }
 
-export function initInfrastructure() {
+export async function initInfrastructure() {
+    // Initialize the database connection
+    if (!AppDataSource.isInitialized) {
+        await AppDataSource.initialize();
+        logger.info("Database connection initialized successfully");
+    }
+
     return new Infrastructure({
         database: AppDataSource,
         cache: redis,

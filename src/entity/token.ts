@@ -13,7 +13,7 @@ export class Token {
         type: 'varchar', length: 50, nullable: true, unique: true})
     deviceID?: string;
 
-    @Column({type: 'timestamp'})
+    @Column({type: 'timestamp', nullable: false})
     expiredAt!: Date;
 
     @Column({type: 'uuid'})

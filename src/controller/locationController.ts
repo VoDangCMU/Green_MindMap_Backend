@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
-import userRepository from "@root/repository/userRepository";
 import {Locations} from "@root/entity/locations";
+import {User} from "@root/entity/user";
 import {AppDataSource} from "@root/infrastructure/database";
 
 const LocationRepository = AppDataSource.getRepository(Locations);
+const UserRepository = AppDataSource.getRepository(User);
 
 export class LocationController {
     private validateLocationData(locationData: any): boolean {
@@ -24,7 +25,9 @@ export class LocationController {
         }
 
         try {
-            const existedUser = await userRepository.findById(locationData.user);
+            const existedUser = await UserRepository.findOne({
+                where: { id: locationData.user }
+            });
             if (!existedUser) {
                 return res.status(404).json({ message: `User with ID ${locationData.user} not found.` });
             }

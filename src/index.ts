@@ -6,7 +6,7 @@ import controller from "@root/controller";
 
 async function startServer() {
     try {
-        const infrastructure = initInfrastructure();
+        const infrastructure = await initInfrastructure();
         const logger = infrastructure.logger;
 
 

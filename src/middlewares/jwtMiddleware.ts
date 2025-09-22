@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { JWTHelper } from "@root/utils/jwtHelper";
-import repository from "@root/repository";
+import { BitmapHelper } from "@root/utils/bitmapHelper";
 
 
 declare global {
@@ -15,45 +15,53 @@ declare global {
 }
 
 export const jwtAuthMiddleware = async (req: Request, res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization;
+    let token = req.cookies?.access_token;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ message: "Missing or invalid Authorization header" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const payload = JWTHelper.verifyToken(token);
-
-    if (!payload) {
-        return res.status(401).json({ message: "Invalid or expired token" });
+    if (!token) {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return res.status(401).json({ message: "Missing or invalid access token" });
+        }
+        token = authHeader.split(" ")[1];
     }
 
     try {
-        const tokenId = generateTokenId(token);
-        const isBlacklisted = await repository.bitmap.isBlacklisted(tokenId);
+        const payload = JWTHelper.verifyAccessToken(token);
+
+        if (!payload) {
+            return res.status(401).json({ message: "Invalid or expired token" });
+        }
+
+        const isBlacklisted = await BitmapHelper.isTokenBlacklisted(token);
 
         if (isBlacklisted) {
             return res.status(401).json({ message: "Token has been revoked" });
         }
-    } catch (error) {
-        console.error("Error checking token blacklist:", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
 
-    req.user = {
-        userId: payload.userId,
-        role: payload.role
-    };
+        req.user = {
+            userId: payload.userId,
+            role: payload.role
+        };
+
+        next();
+    } catch (error) {
+        console.error("Error in JWT middleware:", error);
+        return res.status(401).json({ message: "Invalid or expired token" });
+    }
+};
+
+export const revokeTokenMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+    const authHeader = req.headers.authorization;
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+        const token = authHeader.split(" ")[1];
+
+        try {
+            await BitmapHelper.blacklistToken(token, 7 * 24 * 60 * 60 * 1000);
+        } catch (error) {
+            console.error("Error revoking token:", error);
+        }
+    }
 
     next();
 };
-
-function generateTokenId(token: string): number {
-    let hash = 0;
-    for (let i = 0; i < token.length; i++) {
-        const char = token.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-    }
-    return Math.abs(hash) % 100000;
-}

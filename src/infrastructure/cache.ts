@@ -7,3 +7,4 @@ export const redis = new Redis({
     password: config.redis.password,
     db: config.redis.db,
 });
+

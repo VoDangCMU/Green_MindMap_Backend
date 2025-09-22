@@ -1,8 +1,14 @@
-import { Router} from "express";
-import controller from "@root/controller";
+import { Router } from "express";
+import userController from "@root/controller/userController";
+import {jwtAuthMiddleware} from "@root/middlewares/jwtMiddleware";
 
-const userRouter = Router();
+const router = Router();
 
-userRouter.post("/user/login/email-pass", controller.user.LoginWithEmail);
+router.post("/auth/login/email", userController.LoginWithEmail);
+router.post("/auth/register/email", userController.RegisterWithEmail);
 
-export default userRouter;
+router.post("/auth/login/google", userController.LoginWithGoogle);
+
+router.get("/profile", jwtAuthMiddleware, userController.GetProfile);
+router.post('/auth/logout',jwtAuthMiddleware, userController.Logout);
+export default router;
