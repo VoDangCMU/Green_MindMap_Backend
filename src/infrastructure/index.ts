@@ -1,5 +1,5 @@
 import { redis } from "./cache";
-import { AppDataSource } from "./database";
+import AppDataSource from "./database";
 import { DataSource } from "typeorm";
 import Redis from "ioredis";
 import { logger, LoggerClient } from "./logger";

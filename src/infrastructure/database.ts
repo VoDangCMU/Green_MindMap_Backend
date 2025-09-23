@@ -14,5 +14,4 @@ const AppDataSource = new DataSource({
     logging: true,
 });
 
-export { AppDataSource };
 export default AppDataSource;

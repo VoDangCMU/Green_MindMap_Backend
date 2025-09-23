@@ -1,6 +1,6 @@
 import { Request, Response, RequestHandler } from "express";
 import bcrypt from "bcrypt";
-import { AppDataSource } from "@root/infrastructure/database";
+import AppDataSource from "@root/infrastructure/database";
 import { User } from "@root/entity/user";
 import { Token } from "@root/entity/token";
 import { JWTHelper } from "@root/utils/jwtHelper";

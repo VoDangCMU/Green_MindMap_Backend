@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { JWTHelper } from '@root/utils/jwtHelper';
 import { getLogger } from '@root/infrastructure/logger';
-import { AppDataSource } from '@root/infrastructure/database';
+import AppDataSource from '@root/infrastructure/database';
 import { User } from '@root/entity/user';
 import { Token } from '@root/entity/token';
 import { UsernameHelper } from '@root/utils/usernameHelper';
