@@ -2,7 +2,7 @@
 
 # Exit on error
 set -e
-source ./.env
+#source ./.env
 
 
 echo "Running database migrations..."
