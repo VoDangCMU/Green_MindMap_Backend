@@ -80,6 +80,7 @@ jobs:
 
       - name: Start http server
         run: |
+              source local.env
               chmod +x ./entrypoint.sh
               ./entrypoint.sh &
               sleep 15
