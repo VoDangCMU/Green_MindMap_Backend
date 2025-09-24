@@ -15,24 +15,46 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
+          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install dependencies with legacy peer deps
+        run: npm install --legacy-peer-deps
 
-      - name : source .env
-        run: source local.env
+      - name: Source environment variables
+        run: |
+          if [ -f local.env ]; then
+            export $(grep -v '^#' local.env | xargs)
+          fi
 
       - name: Start dependencies services
         run: | 
               cd deploy/docker 
               docker-compose up -d 
+              sleep 10
+
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for database and redis to be ready..."
+          sleep 20
+
+      - name: Build application
+        run: npm run build
 
       - name: Start http server
         run: |
-              sudo chmod +x ./entrypoint.sh
-              ./entrypoint.sh 
-              sleep 10
+              chmod +x ./entrypoint.sh
+              ./entrypoint.sh &
+              sleep 15
+
+      - name: Verify server is running
+        run: |
+          curl -f http://localhost:3000/check || (echo "Server failed to start" && exit 1)
 
       - name: Run tests
-        run: npm test
+        run: npm run test
 
+      - name: Cleanup
+        if: always()
+        run: |
+          cd deploy/docker
+          docker-compose down
