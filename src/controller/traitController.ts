@@ -1,6 +1,6 @@
 import {Request, Response} from 'express';
 import {z} from 'zod';
-import {AppDataSource } from '../infrastructure/database';
+import AppDataSource from '../infrastructure/database';
 import {Traits} from '../entity/traits';
 import {logger} from '@root/infrastructure/logger';
 

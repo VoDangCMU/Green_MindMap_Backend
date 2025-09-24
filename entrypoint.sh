@@ -2,6 +2,8 @@
 
 # Exit on error
 set -e
+source ./.env
+
 
 echo "Running database migrations..."
 npm run migration:run
