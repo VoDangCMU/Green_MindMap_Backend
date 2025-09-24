@@ -1,5 +1,5 @@
-import { redis } from '@root/infrastructure/cache';
-import { getLogger } from '@root/infrastructure/logger';
+import { redis } from '../infrastructure/cache';
+import { getLogger } from '../infrastructure/logger';
 
 const BITMAP_KEY = 'bitmap:id_pool';
 const BLACKLIST_KEY = 'bitmap:blacklist';

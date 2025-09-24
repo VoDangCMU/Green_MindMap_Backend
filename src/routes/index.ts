@@ -1,11 +1,11 @@
 import { Router } from "express";
-import checkRoutes from "@root/routes/checkRoutes";
-import userRoutes from "@root/routes/userRoutes";
-import tokenRouter from "@root/routes/tokenRoutes";
-import locationRouter from "@root/routes/locationRoutes";
-import templateRouter from "@root/routes/templateRoutes";
-import traitRouter from "@root/routes/traitRoutes";
-import {jwtAuthMiddleware} from "@root/middlewares/jwtMiddleware";
+import checkRoutes from "./checkRoutes";
+import userRoutes from "./userRoutes";
+import tokenRouter from "./tokenRoutes";
+import locationRouter from "./locationRoutes";
+import templateRouter from "./templateRoutes";
+import traitRouter from "./traitRoutes";
+import {jwtAuthMiddleware} from "../middlewares/jwtMiddleware";
 const router = Router();
 
 router.use(checkRoutes);

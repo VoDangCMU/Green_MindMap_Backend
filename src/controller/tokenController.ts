@@ -1,5 +1,5 @@
 import { Request, Response, RequestHandler } from "express";
-import {JWTHelper} from "@root/utils/jwtHelper";
+import {JWTHelper} from "../utils/jwtHelper";
 
 export class TokenController {
     public GetNewToken: RequestHandler = async (req: Request, res: Response): Promise<void> => {

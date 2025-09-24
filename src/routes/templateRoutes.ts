@@ -1,5 +1,5 @@
 import { Router } from "express";
-import templateController from "@root/controller/templateController";
+import templateController from "../controller/templateController";
 
 const router = Router();
 

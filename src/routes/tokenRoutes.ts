@@ -1,5 +1,5 @@
-import { Router} from "express";
-import controller from "@root/controller";
+import { Router } from "express";
+import controller from "../controller";
 
 const tokenRouter = Router();
 

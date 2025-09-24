@@ -1,5 +1,5 @@
-import {Router} from 'express';
-import traitController from '@root/controller/traitController';
+import { Router } from 'express';
+import traitController from '../controller/traitController';
 
 const router = Router();
 

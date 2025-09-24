@@ -3,7 +3,7 @@ import { z } from 'zod';
 import AppDataSource from '../infrastructure/database';
 import { Template } from '../entity/templates';
 import { Questions } from '../entity/questions';
-import { logger } from '@root/infrastructure/logger';
+import { logger } from '../infrastructure/logger';
 
 const TemplateSchema = z.object({
     text: z.string(),

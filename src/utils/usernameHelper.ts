@@ -1,5 +1,5 @@
-import AppDataSource from "@root/infrastructure/database";
-import { User } from "@root/entity/user";
+import AppDataSource from "../infrastructure/database";
+import { User } from "../entity/user";
 
 export class UsernameHelper {
     /**

@@ -1,8 +1,8 @@
 import express from "express";
-import { config } from "@root/config/env";
-import routes from "@root/routes";
-import { initInfrastructure } from "@root/infrastructure";
-import controller from "@root/controller";
+import { config } from "./config/env";
+import routes from "./routes";
+import { initInfrastructure } from "./infrastructure";
+import controller from "./controller";
 
 async function startServer() {
     try {

@@ -1,5 +1,5 @@
-import jwt from 'jsonwebtoken';
-import { config } from '@root/config/env';
+import jwt from "jsonwebtoken";
+import { config } from '../config/env';
 
 export interface JWTPayload {
     userId: string;

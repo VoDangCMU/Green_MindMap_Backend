@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { getLogger } from '@root/infrastructure/logger';
+import { getLogger } from '../infrastructure/logger';
 
 export function loggingMiddleware(req: Request, res: Response, next: NextFunction) {
     const startTime = Date.now();

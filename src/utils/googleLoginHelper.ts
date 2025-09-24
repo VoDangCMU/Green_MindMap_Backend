@@ -1,10 +1,10 @@
 import axios from 'axios';
-import { JWTHelper } from '@root/utils/jwtHelper';
-import { getLogger } from '@root/infrastructure/logger';
-import AppDataSource from '@root/infrastructure/database';
-import { User } from '@root/entity/user';
-import { Token } from '@root/entity/token';
-import { UsernameHelper } from '@root/utils/usernameHelper';
+import { JWTHelper } from './jwtHelper';
+import { getLogger } from '../infrastructure/logger';
+import AppDataSource from '../infrastructure/database';
+import { User } from '../entity/user';
+import { Token } from '../entity/token';
+import { UsernameHelper } from './usernameHelper';
 
 export interface GoogleUserInfo {
     id: string;

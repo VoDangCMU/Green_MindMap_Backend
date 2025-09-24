@@ -2,7 +2,7 @@ import {Request, Response} from 'express';
 import {z} from 'zod';
 import AppDataSource from '../infrastructure/database';
 import {Traits} from '../entity/traits';
-import {logger} from '@root/infrastructure/logger';
+import {logger} from '../infrastructure/logger';
 
 const TraitSchema = z.object({
     name: z.string(),

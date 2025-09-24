@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
-import { JWTHelper } from "@root/utils/jwtHelper";
-import { BitmapHelper } from "@root/utils/bitmapHelper";
+import { JWTHelper } from "../utils/jwtHelper";
+import { BitmapHelper } from "../utils/bitmapHelper";
 
 
 declare global {

@@ -1,8 +1,8 @@
-import { Request, RequestHandler, Response } from "express";
-import { getLogger } from "@root/infrastructure/logger";
+import { Request, Response } from "express";
+import { getLogger } from "../infrastructure/logger";
 
 export class CheckHeathController {
-    public checkHealth: RequestHandler = (req: Request, res: Response) => {
+    public checkHealth = (req: Request, res: Response) => {
         const logger = getLogger();
         logger.debug("Health check requested", {
             timestamp: new Date().toISOString(),

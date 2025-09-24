@@ -1,7 +1,7 @@
-import { Request, Response } from 'express';
-import {Locations} from "@root/entity/locations";
-import {User} from "@root/entity/user";
-import AppDataSource from "@root/infrastructure/database";
+import { Request, Response } from "express";
+import {Locations} from "../entity/locations";
+import {User} from "../entity/user";
+import AppDataSource from "../infrastructure/database";
 
 const LocationRepository = AppDataSource.getRepository(Locations);
 const UserRepository = AppDataSource.getRepository(User);

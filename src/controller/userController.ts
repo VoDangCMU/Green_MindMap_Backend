@@ -1,13 +1,13 @@
 import { Request, Response, RequestHandler } from "express";
 import bcrypt from "bcrypt";
-import AppDataSource from "@root/infrastructure/database";
-import { User } from "@root/entity/user";
-import { Token } from "@root/entity/token";
-import { JWTHelper } from "@root/utils/jwtHelper";
-import { GoogleLoginHelper } from "@root/utils/googleLoginHelper";
-import { BitmapHelper } from "@root/utils/bitmapHelper";
-import { getLogger } from "@root/infrastructure/logger";
-import { UsernameHelper } from "@root/utils/usernameHelper";
+import AppDataSource from "../infrastructure/database";
+import { User } from "../entity/user";
+import { Token } from "../entity/token";
+import { JWTHelper } from "../utils/jwtHelper";
+import { GoogleLoginHelper } from "../utils/googleLoginHelper";
+import { BitmapHelper } from "../utils/bitmapHelper";
+import { getLogger } from "../infrastructure/logger";
+import { UsernameHelper } from "../utils/usernameHelper";
 
 class UserController {
     public RegisterWithEmail: RequestHandler = async (req: Request, res: Response) => {
