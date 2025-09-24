@@ -1,0 +1,38 @@
+name: intergration-test.yml
+on:
+  pull_request:
+   branches: [dev]
+
+jobs:
+  intergration-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name : source .env
+        run: source local.env
+
+      - name: Start dependencies services
+        run: | 
+              cd deploy/docker 
+              docker-compose up -d 
+
+      - name: Start http server
+        run: |
+              sudo chmod +x ./entrypoint.sh
+              ./entrypoint.sh 
+              sleep 10
+
+      - name: Run tests
+        run: npm test
+
