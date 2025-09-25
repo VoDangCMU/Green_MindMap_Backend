@@ -13,10 +13,10 @@ export class User {
     username!: string;
 
     @Column({type: 'varchar', length: 255, unique: true})
-    email!: string;
+    email?: string;
 
     @Column({type: 'varchar', length: 20, nullable: true, unique: true})
-    phoneNumber!: string;
+    phoneNumber?: string;
 
     @Column({type: 'varchar', length: 255})
     password!: string;

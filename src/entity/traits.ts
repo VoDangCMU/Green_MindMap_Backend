@@ -13,10 +13,10 @@ export class Traits {
     name!: string;
 
     @Column({type: 'text'})
-    description!: string;
+    description?: string;
 
     @Column({type: 'text'})
-    label!: string;
+    label?: string;
 
     @OneToMany(() => ThreadHall, threadHall => threadHall.traits)
     threadHalls!: ThreadHall[];

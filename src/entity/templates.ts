@@ -11,11 +11,15 @@ export class Template {
     @Column({type: 'text'})
     text!: string;
 
+    // trait
+    @Column({type: 'text'})
+    trait!: string;
+
     @Column({type: 'text', array: true})
-    placeholder!: string[];
+    placeholder?: string[];
 
     @Column({type: 'text'})
-    answer_type!: string;
+    questionType!: string;
 
     @CreateDateColumn({type: 'timestamp'})
     createdAt!: Date;

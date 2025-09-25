@@ -20,6 +20,9 @@ const corsOptions: cors.CorsOptions = {
         const allowedOrigins = [
             'http://localhost:3000',
             'http://localhost:5173',
+            'http://localhost:3001',
+            'http://localhost:3002',
+            'http://100.91.11.25:3002',
             'https://*.khoav4.com',
         ];
 

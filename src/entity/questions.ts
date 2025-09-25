@@ -10,6 +10,7 @@ import {
 import {Template} from "./templates";
 import {ThreadHall} from "./thread_halls";
 import {UserAnswers} from "./user_answers";
+import {QuestionOptions} from "./question_options";
 
 export const QUESTIONS_TABLE_NAME = 'questions';
 
@@ -21,20 +22,21 @@ export class Questions {
     @ManyToOne(() => Template, {onDelete: 'CASCADE'})
     template!: Template;
 
-    @ManyToOne(() => ThreadHall, {onDelete: 'CASCADE'})
-    threadHall!: ThreadHall;
-
     @Column({type: 'text'})
     question!: string;
 
-    @Column({type: "bigint"})
-    trait!: number;
+    // Additional fields for complex template processing
+    @Column({type: 'text', nullable: true})
+    templateId?: string; // External template ID from request
 
-    @Column({type: "text"})
-    placeholders!: string;
+    @Column({type: 'text', nullable: true})
+    behaviorInput?: string;
 
-    @Column({type: "text"})
-    expected_answer!: string;
+    @Column({type: 'text', nullable: true})
+    behaviorNormalized?: string;
+
+    @Column({type: 'decimal', precision: 5, scale: 2, nullable: true})
+    normalizeScore?: number;
 
     @CreateDateColumn({type: 'timestamp'})
     createdAt!: Date;
@@ -42,6 +44,12 @@ export class Questions {
     @UpdateDateColumn({type: 'timestamp'})
     updatedAt!: Date;
 
+    @ManyToOne(() => ThreadHall, {onDelete: 'CASCADE'})
+    threadHall!: ThreadHall;
+
     @OneToMany(() => UserAnswers, userAnswers => userAnswers.question)
-    userAnswers!: UserAnswers[];
+    userAnswers?: UserAnswers[];
+
+    @OneToMany(() => QuestionOptions, questionOptions => questionOptions.question)
+    questionOptions?: QuestionOptions[];
 }

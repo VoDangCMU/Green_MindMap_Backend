@@ -17,7 +17,7 @@ export class BigFive {
     id!: string;
 
     @Column({type: "double precision"})
-    openness!: string;
+    openness!: number;
 
     @Column({type: "double precision"})
     conscientiousness!: number;
@@ -38,5 +38,7 @@ export class BigFive {
     updatedAt!: Date;
 
     @OneToOne(() => User, user => user.bigFive)
+    @JoinColumn({ name: "userId" })
     user!: User;
+
 }
