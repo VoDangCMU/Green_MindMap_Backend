@@ -1,54 +1,168 @@
-import {Request, Response} from "express";
-import {Locations} from "../entity/locations";
-import {User} from "../entity/user";
-import AppDataSource from "../infrastructure/database";
+import {Request, Response} from 'express';
+import {z} from 'zod';
+import AppDataSource from '../infrastructure/database';
+import {Locations} from '../entity/locations';
+import {User} from '../entity/user';
+import { logger } from '../infrastructure/logger';
+import TEXT from "../config/schemas/Text";
+import NUMBER from "../config/schemas/Number";
+
+const LocationSchema = z.object({
+    userId: TEXT.uuid(),
+    address: TEXT,
+    longitude: NUMBER,
+    latitude: NUMBER,
+});
+
+const LocationIdSchema = z.object({
+    id: TEXT.uuid(),
+});
 
 const LocationRepository = AppDataSource.getRepository(Locations);
 const UserRepository = AppDataSource.getRepository(User);
 
-export class LocationController {
-    private validateLocationData(locationData: any): boolean {
-        if (!locationData) return false;
-        const { user, address, latitude, longitude } = locationData;
-        if (!user) return false;
-        if (typeof address !== "string" || address.trim() === "") return false;
-        if (typeof latitude !== "number" || Number.isNaN(latitude)) return false;
-        if (typeof longitude !== "number" || Number.isNaN(longitude)) return false;
-        return true;
+function validateLocationParams(req: Request, res: Response) {
+    const parsed = LocationSchema.safeParse(req.body);
+    if (!parsed.success) {
+        logger.error('Zod validation error', undefined, {details: parsed.error});
+        res.status(400).json(parsed.error);
+        return null;
+    }
+    return parsed.data;
+}
+
+class LocationController {
+    public async createLocation(req: Request, res: Response) {
+        const data = validateLocationParams(req, res);
+        if (!data) return;
+
+        let existedUser;
+
+        try {
+            existedUser = await UserRepository.findOne({
+                where: {id: data.userId}
+            });
+        } catch (e) {
+            res.status(500).json({ message: "Internal server error" });
+            return;
+        }
+        if (!existedUser) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const location = new Locations();
+        location.user = existedUser;
+        location.latitude = data.latitude;
+        location.longitude = data.longitude;
+        location.address = data.address;
+
+        try {
+            await LocationRepository.save(location);
+        } catch (e) {
+            res.status(500).json({ message: "Internal server error" });
+            return;
+        }
+
+        return res.status(201).json(location);
     }
 
-    public async create(req: Request, res: Response) {
-        const locationData = req.body;
+    public async updateLocationById(req: Request, res: Response) {
+        const data = validateLocationParams(req, res);
+        if (!data) return;
 
-        if (!this.validateLocationData(locationData)) {
-            return res.status(400).json({ message: "Invalid location data" });
+        const parsed = LocationIdSchema.safeParse(req.params);
+        if (!parsed.success) {
+            logger.error('Zod validation error', undefined, { details: parsed.error });
+            return res.status(400).json(parsed.error);
+        }
+
+        const locationId = parsed.data.id;
+        let location;
+
+        try {
+            location = await LocationRepository.findOne({
+                where: {id: locationId}
+            });
+        } catch (e) {
+            res.status(500).json({ message: "Internal server error" });
+            return;
+        }
+
+        if (!location) {
+            return res.status(404).json({ error: 'Location not found' });
+        }
+
+        location.latitude = data.latitude;
+        location.longitude = data.longitude;
+        location.address = data.address;
+
+        try {
+            await LocationRepository.save(location);
+        } catch (e) {
+            res.status(500).json({ message: "Internal server error" });
+            return;
+        }
+
+        return res.status(200).json(location);
+    }
+
+    public async getLocationById(req: Request, res: Response) {
+        const parsed = LocationIdSchema.safeParse(req.params);
+        if (!parsed.success) {
+            logger.error('Zod validation error', undefined, { details: parsed.error });
+            return res.status(400).json(parsed.error);
+        }
+
+        const locationId = parsed.data.id;
+        let location;
+
+        try {
+            location = await LocationRepository.findOne({
+                where: {id: locationId}
+            });
+        } catch (e) {
+            res.status(500).json({ message: "Internal server error" });
+            return;
+        }
+
+        if (!location) {
+            return res.status(404).json({ error: 'Location not found' });
+        }
+
+        return res.status(200).json(location);
+    }
+
+    public async deleteLocationById(req: Request, res: Response) {
+        const parsed = LocationIdSchema.safeParse(req.params);
+        if (!parsed.success) {
+            logger.error('Zod validation error', undefined, { details: parsed.error });
+            return res.status(400).json(parsed.error);
+        }
+
+        const locationId = parsed.data.id;
+        let location;
+
+        try {
+            location = await LocationRepository.findOne({
+                where: {id: locationId}
+            });
+        } catch (e) {
+            res.status(500).json({ message: "Internal server error" });
+            return;
+        }
+
+        if (!location) {
+            return res.status(404).json({ error: 'Location not found' });
         }
 
         try {
-            const existedUser = await UserRepository.findOne({
-                where: { id: locationData.user }
-            });
-            if (!existedUser) {
-                return res.status(404).json({ message: `User with ID ${locationData.user} not found.` });
-            }
-
-            const createdLocation = new Locations();
-            createdLocation.user = existedUser;
-            createdLocation.address = locationData.address!;
-            createdLocation.latitude = locationData.latitude!;
-            createdLocation.longitude = locationData.longitude!;
-
-            try {
-                await LocationRepository.save(createdLocation);
-            } catch (e) {
-                return res.status(500).json({ message: "Internal server error" });
-            }
-
-            return res.status(201).json(createdLocation);
-        } catch (error) {
-            console.error(error);
-            return res.status(500).json({ message: "Internal server error" });
+            await LocationRepository.delete(locationId);
+        } catch (e) {
+            res.status(500).json({ message: "Internal server error" });
+            return;
         }
+
+        return res.status(200).json(location);
     }
 }
 
