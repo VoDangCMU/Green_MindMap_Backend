@@ -1,10 +1,10 @@
-import { Router } from "express";
+import {Router} from "express";
 import locationController from "../controller/locationController";
 import { jwtAuthMiddleware } from "../middlewares/jwtMiddleware";
 
-const locationRouter = Router();
+const location = Router();
 
 locationRouter.use(jwtAuthMiddleware); // Re-enable JWT middleware for location routes
 locationRouter.post("/location/create", locationController.create);
 
-export default locationRouter;
+export default location;
