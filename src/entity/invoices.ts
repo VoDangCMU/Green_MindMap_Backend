@@ -28,6 +28,9 @@ export class Invoices {
     @ManyToOne(() => Scans, (scans) => scans.invoices, { onDelete: "CASCADE" })
     scans!: Scans;
 
+    @Column({ type: "text", name: "source_id", nullable: true })
+    sourceId!: string;
+
     @Column({ name: "currency", type: "text" })
     currency!: string;
 

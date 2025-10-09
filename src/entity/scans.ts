@@ -16,7 +16,7 @@ export const SCANS_TABLE_NAME = 'scans';
 
 @Entity(SCANS_TABLE_NAME)
 export class Scans {
-    @PrimaryGeneratedColumn("uuid")
+    @PrimaryGeneratedColumn({type: "bigint"})
     id!: string;
 
     @ManyToOne(() => FoodItems, foodItems => foodItems.scans)

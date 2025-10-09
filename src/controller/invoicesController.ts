@@ -30,7 +30,7 @@ const vendorParamsSchemas = z.object({
 });
 
 const docSchema = z.object({
-    source_id: z.string().uuid().nullish().optional(),
+    source_id: z.string().nullish().optional(),
     currency: TEXT,
     payment_method: TEXT,
     notes: TEXT.nullish(),
@@ -134,6 +134,7 @@ export class InvoicesController {
                 }
 
                 const newInvoice = manager.create(Invoices, {
+                    sourceId: doc?.source_id ?? null,
                     currency: doc?.currency ?? "VND",
                     paymentMethod: doc?.payment_method ?? "unknown",
                     notes: doc?.notes ?? null,
