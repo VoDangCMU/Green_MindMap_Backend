@@ -5,6 +5,7 @@ import { adminMiddleware, staffOrAdminMiddleware } from '../middlewares/adminMid
 
 const router = Router();
 
+router.post('/submit', jwtAuthMiddleware, controller.userAnswers.submitUserAnswers);
 // Create User Answer (requires authentication)
 router.post('/', jwtAuthMiddleware, controller.userAnswers.createUserAnswer);
 

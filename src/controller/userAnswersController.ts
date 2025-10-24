@@ -51,7 +51,114 @@ function validateUserAnswersUpdateParams(req: Request, res: Response) {
     return parsed.data;
 }
 
+const submitSchema = z.object({
+    userId: z.string().uuid(),
+    answers: z.array(
+        z.object({
+            questionId: z.string().uuid(),
+            answer: z.string().min(1),
+        })
+    ),
+});
+
+function validateUserAnswersSubmitParams(req: Request, res: Response) {
+    const parsed = submitSchema.safeParse(req.body);
+    if (!parsed.success) {
+        logger.error('Zod validation error in submitUserAnswer', undefined, { details: parsed.error });
+        res.status(400).json({
+            message: 'Invalid input',
+            errors: parsed.error.errors,
+        });
+        return null;
+    }
+    return parsed.data;
+}
+
 class UserAnswersController {
+    public async submitUserAnswers(req: Request, res: Response) {
+        const data = validateUserAnswersSubmitParams(req, res);
+        if (!data) return;
+
+        const { userId, answers } = data;
+
+        const queryRunner = AppDataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+
+        try {
+            const userRepo = queryRunner.manager.getRepository(User);
+            const questionRepo = queryRunner.manager.getRepository(Questions);
+            const userAnswerRepo = queryRunner.manager.getRepository(UserAnswers);
+
+            const user = await userRepo.findOne({
+                where: {
+                    id: userId
+                }
+            });
+            if (!user) {
+                await queryRunner.rollbackTransaction();
+                return res.status(404).json({ message: `User ${userId} not found` });
+            }
+
+            const savedAnswers: UserAnswers[] = [];
+            const notFoundQuestions: string[] = [];
+
+            for (const ans of answers) {
+                const question = await questionRepo.findOne({
+                    where: {
+                        id: ans.questionId
+                    }
+                });
+
+                if (!question) {
+                    notFoundQuestions.push(ans.questionId);
+                    continue;
+                }
+
+                const existing = await userAnswerRepo.findOne({
+                    where: {
+                        userId: userId,
+                        questionId: ans.questionId
+                    },
+                });
+
+                let saved: UserAnswers;
+
+                if (existing) {
+                    existing.answer = ans.answer;
+                    existing.timestamp = new Date();
+                    saved = await userAnswerRepo.save(existing);
+                } else {
+                    const newAnswer = userAnswerRepo.create({
+                        userId: userId,
+                        questionId: ans.questionId,
+                        answer: ans.answer,
+                        timestamp: new Date(),
+                    });
+                    saved = await userAnswerRepo.save(newAnswer);
+                }
+
+                savedAnswers.push(saved);
+            }
+
+            await queryRunner.commitTransaction();
+
+            const response = {
+                message: 'Submit success',
+                totalAnswered: savedAnswers.length,
+                data: savedAnswers,
+            };
+
+            return res.status(200).json(response);
+        } catch (err: any) {
+            await queryRunner.rollbackTransaction();
+            logger.error('Error in submitUserAnswer', undefined, { details: err });
+            return res.status(500).json({ message: 'Internal server error', error: err.message });
+        } finally {
+            await queryRunner.release();
+        }
+    }
+
     public async createUserAnswer(req: Request, res: Response) {
         const data = validateUserAnswersParams(req, res);
         if (!data) return;
