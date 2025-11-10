@@ -5,8 +5,7 @@ import {
     CreateDateColumn,
     UpdateDateColumn,
     OneToMany,
-    OneToOne,
-    ManyToOne
+    OneToOne
 } from 'typeorm';
 import {Locations} from "./locations";
 import {BigFive} from "./big_five";
@@ -18,8 +17,8 @@ export class User {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
 
-    @ManyToOne(() => Locations, locations => locations.users)
-    locations!: Locations;
+    @OneToMany(() => Locations, location => location.user)
+    locations!: Locations[];
 
     @Column({type: 'varchar', length: 255, unique: true})
     username!: string;
@@ -38,7 +37,6 @@ export class User {
 
     @Column({type: 'varchar', length: 10, nullable: true})
     gender!: string;
-
 
     @Column({type: 'varchar', length: 50, nullable: true})
     location?: string;

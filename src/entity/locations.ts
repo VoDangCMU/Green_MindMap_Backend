@@ -4,6 +4,7 @@ import {
     Entity,
     ManyToOne,
     OneToMany,
+    JoinColumn,
     PrimaryGeneratedColumn,
     UpdateDateColumn
 } from "typeorm";
@@ -17,8 +18,12 @@ export class Locations {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
 
-    @OneToMany(() => User, (u) => u.locations)
-    users!: User[];
+    @ManyToOne(() => User, {onDelete: 'CASCADE'})
+    @JoinColumn({ name: 'user_id' })
+    user!: User;
+
+    @Column({type: 'uuid', name: 'user_id'})
+    userId!: string;
 
     @Column({type: 'double precision'})
     latitude!: number;
@@ -26,8 +31,8 @@ export class Locations {
     @Column({type: 'double precision'})
     longitude!: number;
 
-    @Column({type: 'text'})
-    address!: string;
+    @Column({type: 'text', nullable: true})
+    address?: string;
 
     @CreateDateColumn({type: 'timestamp'})
     createdAt!: Date;

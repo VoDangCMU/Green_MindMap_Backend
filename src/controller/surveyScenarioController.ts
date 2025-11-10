@@ -1,4 +1,3 @@
-
 import { RequestHandler } from "express";
 import { z } from "zod";
 import { In } from "typeorm";
@@ -215,7 +214,7 @@ class SurveyScenarioController {
                     fullName: user.fullName || "",
                     age,
                     gender: user.gender || null,
-                    location: user.locations?.address || scenario.location?.address || null,
+                    location: user.locations?.[0]?.address || scenario.location?.address || null,
                     status: (isAssigned ? "assigned" : "not_assigned") as "assigned" | "not_assigned",
                 };
             });

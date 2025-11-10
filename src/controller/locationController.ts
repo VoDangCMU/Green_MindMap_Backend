@@ -8,10 +8,9 @@ import TEXT from "../config/schemas/Text";
 import NUMBER from "../config/schemas/Number";
 
 const LocationSchema = z.object({
-    userId: TEXT.uuid(),
-    address: TEXT,
-    longitude: NUMBER,
     latitude: NUMBER,
+    longitude: NUMBER,
+    address: TEXT.optional(),
 });
 
 const LocationIdSchema = z.object({
@@ -32,37 +31,55 @@ function validateLocationParams(req: Request, res: Response) {
 }
 
 class LocationController {
+    // User gửi vị trí hiện tại của họ
     public async createLocation(req: Request, res: Response) {
         const data = validateLocationParams(req, res);
         if (!data) return;
 
-        let existedUser;
+        // Lấy userId từ JWT token
+        if (!req.user || !req.user.userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const userId = req.user.userId;
 
         try {
-            existedUser = await UserRepository.findOne({
-                where: {id: data.userId}
+            // Kiểm tra user có tồn tại không
+            const existedUser = await UserRepository.findOne({
+                where: {id: userId}
+            });
+
+            if (!existedUser) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+
+            // Tạo location mới với vị trí hiện tại của user
+            const location = LocationRepository.create({
+                userId: userId,
+                user: existedUser,
+                latitude: data.latitude,
+                longitude: data.longitude,
+                address: data.address || undefined,
+            });
+
+            const savedLocation = await LocationRepository.save(location);
+
+            logger.info("User location saved", {
+                userId: userId,
+                locationId: savedLocation.id,
+                latitude: data.latitude,
+                longitude: data.longitude
+            });
+
+            return res.status(201).json({
+                message: "Location saved successfully",
+                data: savedLocation
             });
         } catch (e) {
+            logger.error('Error creating location', e as Error);
             res.status(500).json({ message: "Internal server error" });
             return;
         }
-        if (!existedUser) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        const location = new Locations();
-        location.latitude = data.latitude;
-        location.longitude = data.longitude;
-        location.address = data.address;
-
-        try {
-            await LocationRepository.save(location);
-        } catch (e) {
-            res.status(500).json({ message: "Internal server error" });
-            return;
-        }
-
-        return res.status(201).json(location);
     }
 
     public async updateLocationById(req: Request, res: Response) {
@@ -75,34 +92,36 @@ class LocationController {
             return res.status(400).json(parsed.error);
         }
 
+        if (!req.user || !req.user.userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
         const locationId = parsed.data.id;
-        let location;
 
         try {
-            location = await LocationRepository.findOne({
-                where: {id: locationId}
+            const location = await LocationRepository.findOne({
+                where: {id: locationId, userId: req.user.userId}
+            });
+
+            if (!location) {
+                return res.status(404).json({ error: 'Location not found or unauthorized' });
+            }
+
+            location.latitude = data.latitude;
+            location.longitude = data.longitude;
+            if (data.address) location.address = data.address;
+
+            const updatedLocation = await LocationRepository.save(location);
+
+            return res.status(200).json({
+                message: "Location updated successfully",
+                data: updatedLocation
             });
         } catch (e) {
+            logger.error('Error updating location', e as Error);
             res.status(500).json({ message: "Internal server error" });
             return;
         }
-
-        if (!location) {
-            return res.status(404).json({ error: 'Location not found' });
-        }
-
-        location.latitude = data.latitude;
-        location.longitude = data.longitude;
-        location.address = data.address;
-
-        try {
-            await LocationRepository.save(location);
-        } catch (e) {
-            res.status(500).json({ message: "Internal server error" });
-            return;
-        }
-
-        return res.status(200).json(location);
     }
 
     public async getLocationById(req: Request, res: Response) {
@@ -112,23 +131,27 @@ class LocationController {
             return res.status(400).json(parsed.error);
         }
 
+        if (!req.user || !req.user.userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
         const locationId = parsed.data.id;
-        let location;
 
         try {
-            location = await LocationRepository.findOne({
-                where: {id: locationId}
+            const location = await LocationRepository.findOne({
+                where: {id: locationId, userId: req.user.userId}
             });
+
+            if (!location) {
+                return res.status(404).json({ error: 'Location not found or unauthorized' });
+            }
+
+            return res.status(200).json(location);
         } catch (e) {
+            logger.error('Error fetching location', e as Error);
             res.status(500).json({ message: "Internal server error" });
             return;
         }
-
-        if (!location) {
-            return res.status(404).json({ error: 'Location not found' });
-        }
-
-        return res.status(200).json(location);
     }
 
     public async deleteLocationById(req: Request, res: Response) {
@@ -138,41 +161,83 @@ class LocationController {
             return res.status(400).json(parsed.error);
         }
 
+        if (!req.user || !req.user.userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
         const locationId = parsed.data.id;
-        let location;
 
         try {
-            location = await LocationRepository.findOne({
-                where: {id: locationId}
+            const location = await LocationRepository.findOne({
+                where: {id: locationId, userId: req.user.userId}
+            });
+
+            if (!location) {
+                return res.status(404).json({ error: 'Location not found or unauthorized' });
+            }
+
+            await LocationRepository.delete(locationId);
+
+            return res.status(200).json({
+                message: "Location deleted successfully",
+                data: location
             });
         } catch (e) {
+            logger.error('Error deleting location', e as Error);
             res.status(500).json({ message: "Internal server error" });
             return;
         }
-
-        if (!location) {
-            return res.status(404).json({ error: 'Location not found' });
-        }
-
-        try {
-            await LocationRepository.delete(locationId);
-        } catch (e) {
-            res.status(500).json({ message: "Internal server error" });
-            return;
-        }
-
-        return res.status(200).json(location);
     }
 
+    // Lấy tất cả vị trí của user hiện tại
     public async GetLocations (req: Request, res: Response) {
+        if (!req.user || !req.user.userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
         try {
-             const locaions = await LocationRepository.find({
+            const locations = await LocationRepository.find({
+                where: { userId: req.user.userId },
                 order: {
-                    address: "ASC"
+                    createdAt: "DESC"
                 }
-            })
-            return res.status(200).json(locaions);
+            });
+
+            return res.status(200).json({
+                message: "Locations retrieved successfully",
+                data: locations,
+                count: locations.length
+            });
         } catch (e) {
+            logger.error('Error fetching locations', e as Error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+
+    // Lấy vị trí mới nhất của user
+    public async GetLatestLocation (req: Request, res: Response) {
+        if (!req.user || !req.user.userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        try {
+            const location = await LocationRepository.findOne({
+                where: { userId: req.user.userId },
+                order: {
+                    createdAt: "DESC"
+                }
+            });
+
+            if (!location) {
+                return res.status(404).json({ message: "No location found for this user" });
+            }
+
+            return res.status(200).json({
+                message: "Latest location retrieved successfully",
+                data: location
+            });
+        } catch (e) {
+            logger.error('Error fetching latest location', e as Error);
             return res.status(500).json({ message: "Internal server error" });
         }
     }
