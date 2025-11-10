@@ -16,6 +16,7 @@ import scansRouter from "./scansRoutes";
 import userAnswersRouter from "./userAnswersRoutes";
 import scenariosSurveyRouter from "./scenariosSurveyRoutes";
 import modelRouter from "./modelRoutes";
+import preAppSurveyRouter from "./preAppSurveyRoutes";
 
 const router = Router();
 
@@ -36,5 +37,6 @@ router.use("/scans", scansRouter);
 router.use("/user-answers", userAnswersRouter);
 router.use("/scenarios-survey", scenariosSurveyRouter);
 router.use("/models", modelRouter);
+router.use("/pre-app-survey", preAppSurveyRouter);
 
 export default router;

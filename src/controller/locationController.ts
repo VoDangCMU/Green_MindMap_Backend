@@ -51,7 +51,6 @@ class LocationController {
         }
 
         const location = new Locations();
-        location.user = existedUser;
         location.latitude = data.latitude;
         location.longitude = data.longitude;
         location.address = data.address;
