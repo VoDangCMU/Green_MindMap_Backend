@@ -254,13 +254,74 @@ class UserAnswersController {
         const userId = parsed.data.userId;
 
         try {
+            // Lấy tất cả câu trả lời của user với đầy đủ relations
             const userAnswers = await UserAnswersRepository.find({
                 where: { userId },
-                relations: ['user', 'question'],
+                relations: ['question', 'question.template', 'question.template.answer', 'question.threadHall', 'question.threadHall.traits'],
                 order: { timestamp: 'DESC' }
             });
 
-            return res.status(200).json(userAnswers);
+            // Transform dữ liệu theo format mong muốn
+            const formattedAnswers = userAnswers.map(userAnswer => {
+                const question = userAnswer.question;
+                const template = question?.template;
+                const templateAnswer = template?.answer;
+                const threadHall = question?.threadHall;
+                const trait = threadHall?.traits;
+
+                // Tính score và key dựa trên answer và template type
+                let score = 0;
+                let key = 'pos';
+                const answerText = userAnswer.answer;
+                const answerType = templateAnswer?.type || template?.intent || 'unknown';
+
+                // Logic tính score dựa vào loại câu hỏi
+                if (answerType === 'yesno') {
+                    if (answerText.toLowerCase() === 'có' || answerText.toLowerCase() === 'yes') {
+                        score = 1;
+                        key = 'pos';
+                    } else {
+                        score = 0;
+                        key = 'neg';
+                    }
+                } else if (answerType === 'frequency') {
+                    const frequencyMap: Record<string, number> = {
+                        'không bao giờ': 0,
+                        'hiếm khi': 1,
+                        'thỉnh thoảng': 2,
+                        'thường xuyên': 4,
+                        'rất thường xuyên': 5
+                    };
+                    score = frequencyMap[answerText.toLowerCase()] || 0;
+                    key = score >= 3 ? 'pos' : 'neg';
+                } else if (answerType === 'likert5' || answerType === 'rating') {
+                    score = parseInt(answerText) || 0;
+                    key = score >= 3 ? 'pos' : 'neg';
+                } else {
+                    // Default: cố gắng parse số
+                    const parsed = parseInt(answerText);
+                    if (!isNaN(parsed)) {
+                        score = parsed;
+                        key = score >= 3 ? 'pos' : 'neg';
+                    }
+                }
+
+                return {
+                    trait: trait?.label || trait?.name || 'Unknown',
+                    template_id: template?.id || 'Unknown',
+                    intent: template?.intent || 'Unknown',
+                    question: question?.question || '',
+                    ans: answerText,
+                    score: score,
+                    key: key,
+                    kind: answerType
+                };
+            });
+
+            return res.status(200).json({
+                user_id: userId,
+                answers: formattedAnswers
+            });
         } catch (e) {
             logger.error('Error fetching user answers by user ID', e as Error);
             res.status(500).json({ message: "Internal server error" });
