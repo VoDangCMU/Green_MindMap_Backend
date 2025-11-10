@@ -17,6 +17,7 @@ import userAnswersRouter from "./userAnswersRoutes";
 import scenariosSurveyRouter from "./scenariosSurveyRoutes";
 import modelRouter from "./modelRoutes";
 import preAppSurveyRouter from "./preAppSurveyRoutes";
+import todoRouter from "./todoRoutes";
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use("/user-answers", userAnswersRouter);
 router.use("/scenarios-survey", scenariosSurveyRouter);
 router.use("/models", modelRouter);
 router.use("/pre-app-survey", preAppSurveyRouter);
+router.use("/todos", todoRouter);
 
 export default router;
