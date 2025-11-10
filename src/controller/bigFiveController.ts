@@ -5,25 +5,26 @@ import { BigFive } from '../entity/big_five';
 import { User } from '../entity/user';
 import { logger } from '../infrastructure/logger';
 
-const BigFiveSchema = z.object({
-    openness: z.number().min(0).max(1),
-    conscientiousness: z.number().min(0).max(1),
-    extraversion: z.number().min(0).max(1),
-    agreeableness: z.number().min(0).max(1),
-    neuroticism: z.number().min(0).max(1),
-    userId: z.string().uuid()
+// Schema mới cho format scores
+const BigFiveScoresSchema = z.object({
+    user_id: z.string().uuid(),
+    scores: z.object({
+        O: z.number().min(0).max(100),
+        C: z.number().min(0).max(100),
+        E: z.number().min(0).max(100),
+        A: z.number().min(0).max(100),
+        N: z.number().min(0).max(100)
+    })
 });
 
-const BigFiveUpdateSchema = z.object({
-    openness: z.number().min(0).max(1).optional(),
-    conscientiousness: z.number().min(0).max(1).optional(),
-    extraversion: z.number().min(0).max(1).optional(),
-    agreeableness: z.number().min(0).max(1).optional(),
-    neuroticism: z.number().min(0).max(1).optional()
-});
-
-const BigFiveIdSchema = z.object({
-    id: z.string().uuid(),
+const BigFiveUpdateScoresSchema = z.object({
+    scores: z.object({
+        O: z.number().min(0).max(100).optional(),
+        C: z.number().min(0).max(100).optional(),
+        E: z.number().min(0).max(100).optional(),
+        A: z.number().min(0).max(100).optional(),
+        N: z.number().min(0).max(100).optional()
+    }).optional()
 });
 
 const UserIdSchema = z.object({
@@ -33,35 +34,24 @@ const UserIdSchema = z.object({
 const BigFiveRepository = AppDataSource.getRepository(BigFive);
 const UserRepository = AppDataSource.getRepository(User);
 
-function validateBigFiveParams(req: Request, res: Response) {
-    const parsed = BigFiveSchema.safeParse(req.body);
-    if (!parsed.success) {
-        logger.error('Zod validation error', undefined, { details: parsed.error });
-        res.status(400).json(parsed.error);
-        return null;
-    }
-    return parsed.data;
-}
-
-function validateBigFiveUpdateParams(req: Request, res: Response) {
-    const parsed = BigFiveUpdateSchema.safeParse(req.body);
-    if (!parsed.success) {
-        logger.error('Zod validation error', undefined, { details: parsed.error });
-        res.status(400).json(parsed.error);
-        return null;
-    }
-    return parsed.data;
-}
-
 class BigFiveController {
-    public async createBigFive(req: Request, res: Response) {
-        const data = validateBigFiveParams(req, res);
-        if (!data) return;
+    // Create hoặc Update Big Five với format mới
+    public async submitBigFive(req: Request, res: Response) {
+        const parsed = BigFiveScoresSchema.safeParse(req.body);
+        if (!parsed.success) {
+            logger.error('Zod validation error', undefined, { details: parsed.error });
+            return res.status(400).json({
+                message: 'Invalid input',
+                errors: parsed.error.errors
+            });
+        }
+
+        const { user_id, scores } = parsed.data;
 
         try {
             // Check if user exists
             const user = await UserRepository.findOne({
-                where: { id: data.userId },
+                where: { id: user_id },
                 relations: ['bigFive']
             });
 
@@ -69,56 +59,50 @@ class BigFiveController {
                 return res.status(404).json({ message: "User not found" });
             }
 
-            // Check if user already has BigFive data
-            if (user.bigFive) {
-                return res.status(400).json({ message: "User already has Big Five personality data" });
-            }
+            let bigFive = user.bigFive;
 
-            const bigFive = new BigFive();
-            bigFive.openness = data.openness;
-            bigFive.conscientiousness = data.conscientiousness;
-            bigFive.extraversion = data.extraversion;
-            bigFive.agreeableness = data.agreeableness;
-            bigFive.neuroticism = data.neuroticism;
-            bigFive.user = user;
+            if (bigFive) {
+                // Update existing Big Five data
+                bigFive.openness = scores.O / 100;
+                bigFive.conscientiousness = scores.C / 100;
+                bigFive.extraversion = scores.E / 100;
+                bigFive.agreeableness = scores.A / 100;
+                bigFive.neuroticism = scores.N / 100;
+            } else {
+                // Create new Big Five data
+                bigFive = BigFiveRepository.create({
+                    openness: scores.O / 100,
+                    conscientiousness: scores.C / 100,
+                    extraversion: scores.E / 100,
+                    agreeableness: scores.A / 100,
+                    neuroticism: scores.N / 100,
+                    user: user
+                });
+            }
 
             const savedBigFive = await BigFiveRepository.save(bigFive);
 
-            return res.status(201).json(savedBigFive);
-        } catch (e) {
-            logger.error('Error creating Big Five data', e as Error);
-            res.status(500).json({ message: "Internal server error" });
-            return;
-        }
-    }
-
-    public async getBigFiveById(req: Request, res: Response) {
-        const parsed = BigFiveIdSchema.safeParse(req.params);
-        if (!parsed.success) {
-            logger.error('Zod validation error', undefined, { details: parsed.error });
-            return res.status(400).json(parsed.error);
-        }
-
-        const bigFiveId = parsed.data.id;
-
-        try {
-            const bigFive = await BigFiveRepository.findOne({
-                where: { id: bigFiveId },
-                relations: ['user']
+            // Format response theo format mới
+            return res.status(200).json({
+                message: "Big Five scores saved successfully",
+                data: {
+                    user_id: user_id,
+                    scores: {
+                        O: parseFloat((savedBigFive.openness * 100).toFixed(2)),
+                        C: parseFloat((savedBigFive.conscientiousness * 100).toFixed(2)),
+                        E: parseFloat((savedBigFive.extraversion * 100).toFixed(2)),
+                        A: parseFloat((savedBigFive.agreeableness * 100).toFixed(2)),
+                        N: parseFloat((savedBigFive.neuroticism * 100).toFixed(2))
+                    }
+                }
             });
-
-            if (!bigFive) {
-                return res.status(404).json({ error: 'Big Five data not found' });
-            }
-
-            return res.status(200).json(bigFive);
         } catch (e) {
-            logger.error('Error fetching Big Five data', e as Error);
-            res.status(500).json({ message: "Internal server error" });
-            return;
+            logger.error('Error saving Big Five data', e as Error);
+            return res.status(500).json({ message: "Internal server error" });
         }
     }
 
+    // Get Big Five by User ID với format mới
     public async getBigFiveByUserId(req: Request, res: Response) {
         const parsed = UserIdSchema.safeParse(req.params);
         if (!parsed.success) {
@@ -135,100 +119,155 @@ class BigFiveController {
             });
 
             if (!bigFive) {
-                return res.status(404).json({ error: 'Big Five data not found for this user' });
+                return res.status(404).json({ message: 'Big Five data not found for this user' });
             }
 
-            return res.status(200).json(bigFive);
+            // Format response theo format mới
+            return res.status(200).json({
+                user_id: userId,
+                scores: {
+                    O: parseFloat((bigFive.openness * 100).toFixed(2)),
+                    C: parseFloat((bigFive.conscientiousness * 100).toFixed(2)),
+                    E: parseFloat((bigFive.extraversion * 100).toFixed(2)),
+                    A: parseFloat((bigFive.agreeableness * 100).toFixed(2)),
+                    N: parseFloat((bigFive.neuroticism * 100).toFixed(2))
+                }
+            });
         } catch (e) {
             logger.error('Error fetching Big Five data by user ID', e as Error);
-            res.status(500).json({ message: "Internal server error" });
-            return;
+            return res.status(500).json({ message: "Internal server error" });
         }
     }
 
-    public async updateBigFiveById(req: Request, res: Response) {
-        const data = validateBigFiveUpdateParams(req, res);
-        if (!data) return;
-
-        const parsed = BigFiveIdSchema.safeParse(req.params);
+    // Update Big Five scores
+    public async updateBigFive(req: Request, res: Response) {
+        const parsed = BigFiveUpdateScoresSchema.safeParse(req.body);
         if (!parsed.success) {
             logger.error('Zod validation error', undefined, { details: parsed.error });
-            return res.status(400).json(parsed.error);
-        }
-
-        const bigFiveId = parsed.data.id;
-
-        try {
-            const existedBigFive = await BigFiveRepository.findOne({
-                where: { id: bigFiveId }
+            return res.status(400).json({
+                message: 'Invalid input',
+                errors: parsed.error.errors
             });
-
-            if (!existedBigFive) {
-                return res.status(404).json({ error: 'Big Five data not found' });
-            }
-
-            // Update only provided fields
-            if (data.openness !== undefined) existedBigFive.openness = data.openness;
-            if (data.conscientiousness !== undefined) existedBigFive.conscientiousness = data.conscientiousness;
-            if (data.extraversion !== undefined) existedBigFive.extraversion = data.extraversion;
-            if (data.agreeableness !== undefined) existedBigFive.agreeableness = data.agreeableness;
-            if (data.neuroticism !== undefined) existedBigFive.neuroticism = data.neuroticism;
-
-            const updatedBigFive = await BigFiveRepository.save(existedBigFive);
-
-            return res.status(200).json(updatedBigFive);
-        } catch (e) {
-            logger.error('Error updating Big Five data', e as Error);
-            res.status(500).json({ message: "Internal server error" });
-            return;
-        }
-    }
-
-    public async deleteBigFiveById(req: Request, res: Response) {
-        const parsed = BigFiveIdSchema.safeParse(req.params);
-        if (!parsed.success) {
-            logger.error('Zod validation error', undefined, { details: parsed.error });
-            return res.status(400).json(parsed.error);
         }
 
-        const bigFiveId = parsed.data.id;
+        const userIdParsed = UserIdSchema.safeParse(req.params);
+        if (!userIdParsed.success) {
+            logger.error('Zod validation error', undefined, { details: userIdParsed.error });
+            return res.status(400).json(userIdParsed.error);
+        }
+
+        const userId = userIdParsed.data.userId;
+        const { scores } = parsed.data;
 
         try {
             const bigFive = await BigFiveRepository.findOne({
-                where: { id: bigFiveId }
+                where: { user: { id: userId } }
             });
 
             if (!bigFive) {
-                return res.status(404).json({ error: 'Big Five data not found' });
+                return res.status(404).json({ message: 'Big Five data not found for this user' });
             }
 
-            await BigFiveRepository.delete(bigFiveId);
+            // Update only provided scores
+            if (scores) {
+                if (scores.O !== undefined) bigFive.openness = scores.O / 100;
+                if (scores.C !== undefined) bigFive.conscientiousness = scores.C / 100;
+                if (scores.E !== undefined) bigFive.extraversion = scores.E / 100;
+                if (scores.A !== undefined) bigFive.agreeableness = scores.A / 100;
+                if (scores.N !== undefined) bigFive.neuroticism = scores.N / 100;
+            }
 
-            return res.status(200).json({ message: 'Big Five data deleted successfully', deletedData: bigFive });
-        } catch (e) {
-            logger.error('Error deleting Big Five data', e as Error);
-            return res.status(500).json({ error: 'Database error occurred while deleting the Big Five data.' });
-        }
-    }
+            const updatedBigFive = await BigFiveRepository.save(bigFive);
 
-    public async getAllBigFive(req: Request, res: Response) {
-        try {
-            const bigFiveData = await BigFiveRepository.find({
-                relations: ['user'],
-                select: {
-                    user: {
-                        id: true,
-                        username: true,
-                        fullName: true
+            return res.status(200).json({
+                message: "Big Five scores updated successfully",
+                data: {
+                    user_id: userId,
+                    scores: {
+                        O: parseFloat((updatedBigFive.openness * 100).toFixed(2)),
+                        C: parseFloat((updatedBigFive.conscientiousness * 100).toFixed(2)),
+                        E: parseFloat((updatedBigFive.extraversion * 100).toFixed(2)),
+                        A: parseFloat((updatedBigFive.agreeableness * 100).toFixed(2)),
+                        N: parseFloat((updatedBigFive.neuroticism * 100).toFixed(2))
                     }
                 }
             });
+        } catch (e) {
+            logger.error('Error updating Big Five data', e as Error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
 
-            return res.status(200).json(bigFiveData);
+    // Delete Big Five
+    public async deleteBigFive(req: Request, res: Response) {
+        const parsed = UserIdSchema.safeParse(req.params);
+        if (!parsed.success) {
+            logger.error('Zod validation error', undefined, { details: parsed.error });
+            return res.status(400).json(parsed.error);
+        }
+
+        const userId = parsed.data.userId;
+
+        try {
+            const bigFive = await BigFiveRepository.findOne({
+                where: { user: { id: userId } }
+            });
+
+            if (!bigFive) {
+                return res.status(404).json({ message: 'Big Five data not found for this user' });
+            }
+
+            await BigFiveRepository.remove(bigFive);
+
+            return res.status(200).json({
+                message: 'Big Five data deleted successfully',
+                data: {
+                    user_id: userId,
+                    scores: {
+                        O: parseFloat((bigFive.openness * 100).toFixed(2)),
+                        C: parseFloat((bigFive.conscientiousness * 100).toFixed(2)),
+                        E: parseFloat((bigFive.extraversion * 100).toFixed(2)),
+                        A: parseFloat((bigFive.agreeableness * 100).toFixed(2)),
+                        N: parseFloat((bigFive.neuroticism * 100).toFixed(2))
+                    }
+                }
+            });
+        } catch (e) {
+            logger.error('Error deleting Big Five data', e as Error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+
+    // Get all Big Five (admin only)
+    public async getAllBigFive(req: Request, res: Response) {
+        try {
+            const bigFiveList = await BigFiveRepository.find({
+                relations: ['user'],
+                order: { createdAt: 'DESC' }
+            });
+
+            const formattedList = bigFiveList.map(bigFive => ({
+                user_id: bigFive.user.id,
+                username: bigFive.user.username,
+                scores: {
+                    O: parseFloat((bigFive.openness * 100).toFixed(2)),
+                    C: parseFloat((bigFive.conscientiousness * 100).toFixed(2)),
+                    E: parseFloat((bigFive.extraversion * 100).toFixed(2)),
+                    A: parseFloat((bigFive.agreeableness * 100).toFixed(2)),
+                    N: parseFloat((bigFive.neuroticism * 100).toFixed(2))
+                },
+                createdAt: bigFive.createdAt,
+                updatedAt: bigFive.updatedAt
+            }));
+
+            return res.status(200).json({
+                message: "All Big Five data retrieved successfully",
+                count: formattedList.length,
+                data: formattedList
+            });
         } catch (e) {
             logger.error('Error fetching all Big Five data', e as Error);
-            res.status(500).json({ message: "Internal server error" });
-            return;
+            return res.status(500).json({ message: "Internal server error" });
         }
     }
 }

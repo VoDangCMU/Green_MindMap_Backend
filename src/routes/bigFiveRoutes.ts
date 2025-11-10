@@ -5,20 +5,17 @@ import { adminMiddleware } from '../middlewares/adminMiddleware';
 
 const router = Router();
 
-// Create BigFive data (requires authentication)
-router.post('/', jwtAuthMiddleware, controller.bigFive.createBigFive);
+// Submit BigFive scores (Create hoặc Update)
+router.post('/submit', jwtAuthMiddleware, controller.bigFive.submitBigFive);
 
-// Get BigFive data by ID (requires authentication)
-router.get('/:id', jwtAuthMiddleware, controller.bigFive.getBigFiveById);
-
-// Get BigFive data by User ID (requires authentication)
+// Get BigFive scores by User ID
 router.get('/user/:userId', jwtAuthMiddleware, controller.bigFive.getBigFiveByUserId);
 
-// Update BigFive data by ID (requires authentication)
-router.put('/:id', jwtAuthMiddleware, controller.bigFive.updateBigFiveById);
+// Update BigFive scores by User ID
+router.put('/user/:userId', jwtAuthMiddleware, controller.bigFive.updateBigFive);
 
-// Delete BigFive data by ID (requires authentication)
-router.delete('/:id', jwtAuthMiddleware, controller.bigFive.deleteBigFiveById);
+// Delete BigFive scores by User ID
+router.delete('/user/:userId', jwtAuthMiddleware, controller.bigFive.deleteBigFive);
 
 // Get all BigFive data (admin only)
 router.get('/', jwtAuthMiddleware, adminMiddleware, controller.bigFive.getAllBigFive);
