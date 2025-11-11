@@ -22,14 +22,15 @@ interface CreateTodosListRequest {
 }
 
 class TodoController {
-    /**
-     * Create a single todo item
-     * POST /api/todos
-     * Body: { title, parent_id?, completed? }
-     */
     public createTodo: RequestHandler = async (req: Request, res: Response) => {
         const logger = getLogger();
-        const userId = (req as any).userId;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
+
         const { title, parent_id = null, completed = false } = req.body;
 
         if (!title) {
@@ -40,7 +41,6 @@ class TodoController {
         try {
             const todoRepository = AppDataSource.getRepository(Todo);
 
-            // Validate parent exists if parent_id is provided
             if (parent_id) {
                 const parent = await todoRepository.findOne({
                     where: { id: parent_id, user_id: userId }
@@ -89,7 +89,13 @@ class TodoController {
      */
     public createTodosList: RequestHandler = async (req: Request, res: Response) => {
         const logger = getLogger();
-        const userId = (req as any).userId;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
+
         const { todos, parent_id = null } = req.body;
 
         if (!todos || !Array.isArray(todos) || todos.length === 0) {
@@ -152,7 +158,12 @@ class TodoController {
      */
     public getTodos: RequestHandler = async (req: Request, res: Response) => {
         const logger = getLogger();
-        const userId = (req as any).userId;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
 
         try {
             const todoRepository = AppDataSource.getRepository(Todo);
@@ -240,7 +251,13 @@ class TodoController {
      */
     public getTodoById: RequestHandler = async (req: Request, res: Response) => {
         const logger = getLogger();
-        const userId = (req as any).userId;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
+
         const { id } = req.params;
 
         try {
@@ -283,7 +300,13 @@ class TodoController {
      */
     public updateTodo: RequestHandler = async (req: Request, res: Response) => {
         const logger = getLogger();
-        const userId = (req as any).userId;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
+
         const { id } = req.params;
         const { title, completed, parent_id } = req.body;
 
@@ -342,7 +365,13 @@ class TodoController {
      */
     public deleteTodo: RequestHandler = async (req: Request, res: Response) => {
         const logger = getLogger();
-        const userId = (req as any).userId;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
+
         const { id } = req.params;
 
         try {
@@ -376,7 +405,13 @@ class TodoController {
      */
     public toggleTodo: RequestHandler = async (req: Request, res: Response) => {
         const logger = getLogger();
-        const userId = (req as any).userId;
+        const userId = req.user?.userId;
+
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
+
         const { id } = req.params;
 
         try {

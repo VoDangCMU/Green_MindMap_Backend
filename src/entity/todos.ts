@@ -47,4 +47,3 @@ export class Todo {
     @UpdateDateColumn({ type: 'timestamp' })
     updatedAt!: Date;
 }
-
