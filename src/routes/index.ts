@@ -19,6 +19,7 @@ import modelRouter from "./modelRoutes";
 import dailySpendingRouter from "./dailySpendingRoutes";
 import preAppSurveyRouter from "./preAppSurveyRoutes";
 import todoRouter from "./todoRoutes";
+import healthyFoodRatioRouter from "./healthyFoodRatioRoutes";
 
 const router = Router();
 
@@ -42,5 +43,6 @@ router.use("/models", modelRouter);
 router.use("/daily-spending", dailySpendingRouter)
 router.use("/pre-app-survey", preAppSurveyRouter);
 router.use("/todos", todoRouter);
+router.use("/healthy-food-ratio", healthyFoodRatioRouter);
 
 export default router;
