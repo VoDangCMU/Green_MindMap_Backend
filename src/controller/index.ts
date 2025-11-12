@@ -14,6 +14,7 @@ import threadHall from "./threadHallController";
 import scans from "./scansController";
 import userAnswers from "./userAnswersController";
 import surveyScenarios from "./surveyScenarioController";
+import dailyPending from "./dailySpendingController";
 import {modelController as model} from "./modelController";
 import preAppSurvey from "./preAppSurveyController";
 
@@ -35,5 +36,6 @@ export default {
     userAnswers,
     surveyScenarios,
     model,
+    dailyPending,
     preAppSurvey,
 };

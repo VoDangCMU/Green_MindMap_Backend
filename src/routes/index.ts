@@ -16,6 +16,7 @@ import scansRouter from "./scansRoutes";
 import userAnswersRouter from "./userAnswersRoutes";
 import scenariosSurveyRouter from "./scenariosSurveyRoutes";
 import modelRouter from "./modelRoutes";
+import dailySpendingRouter from "./dailySpendingRoutes";
 import preAppSurveyRouter from "./preAppSurveyRoutes";
 import todoRouter from "./todoRoutes";
 
@@ -38,6 +39,7 @@ router.use("/scans", scansRouter);
 router.use("/user-answers", userAnswersRouter);
 router.use("/scenarios-survey", scenariosSurveyRouter);
 router.use("/models", modelRouter);
+router.use("/daily-spending", dailySpendingRouter)
 router.use("/pre-app-survey", preAppSurveyRouter);
 router.use("/todos", todoRouter);
 

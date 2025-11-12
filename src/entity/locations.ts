@@ -34,6 +34,9 @@ export class Locations {
     @Column({type: 'text', nullable: true})
     address?: string;
 
+    @Column({type: 'double precision', nullable: true, name: 'length_to_previous_location'})
+    lengthToPreviousLocation?: number;
+
     @CreateDateColumn({type: 'timestamp'})
     createdAt!: Date;
 

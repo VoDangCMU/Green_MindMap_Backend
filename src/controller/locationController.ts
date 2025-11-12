@@ -11,6 +11,7 @@ const LocationSchema = z.object({
     latitude: NUMBER,
     longitude: NUMBER,
     address: TEXT.optional(),
+    length_to_previous_location: NUMBER.optional(),
 });
 
 const LocationIdSchema = z.object({
@@ -60,6 +61,7 @@ class LocationController {
                 latitude: data.latitude,
                 longitude: data.longitude,
                 address: data.address || undefined,
+                lengthToPreviousLocation: data.length_to_previous_location || undefined,
             });
 
             const savedLocation = await LocationRepository.save(location);
@@ -110,6 +112,9 @@ class LocationController {
             location.latitude = data.latitude;
             location.longitude = data.longitude;
             if (data.address) location.address = data.address;
+            if (data.length_to_previous_location !== undefined) {
+                location.lengthToPreviousLocation = data.length_to_previous_location;
+            }
 
             const updatedLocation = await LocationRepository.save(location);
 

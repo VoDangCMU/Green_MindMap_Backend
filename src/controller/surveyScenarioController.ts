@@ -358,6 +358,26 @@ class SurveyScenarioController {
         }
     };
 
+    public GetAllSimulatedScenarios: RequestHandler = async (_req, res) => {
+        try {
+            const simulations = await this.SimulatedSurveyRepo.find({
+                relations: ["scenario", "triggeredBy"],
+                order: { createdAt: "DESC" },
+            });
+
+            if (!simulations) {
+                return res.status(404).json({ success: false, message: "No simulated surveys found" });
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: "Simulated surveys retrieved successfully",
+                data: simulations,
+            });
+        } catch (error: any) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
     private calculateAgeDateRange(minAge: number, maxAge: number) {
         const today = new Date();
         return {
@@ -365,6 +385,7 @@ class SurveyScenarioController {
             maxBirthDate: new Date(today.getFullYear() - minAge, today.getMonth(), today.getDate()),
         };
     }
+
 
     private buildEligibleUsersQuery(args: {
         minBirthDate: Date;

@@ -10,5 +10,6 @@ router.put('/attach-question/:id', jwtAuthMiddleware, controller.surveyScenarios
 router.delete('/delete-survey-scenarios/:id', jwtAuthMiddleware, controller.surveyScenarios.DeleteSurveyScenario);
 router.post('/simulate-scenario/:id', jwtAuthMiddleware, controller.surveyScenarios.SimulateScenario);
 router.get('/get-simulated/:id', jwtAuthMiddleware, controller.surveyScenarios.GetSimulatedDetails);
+router.get('/get-all-simulated-scenarios', jwtAuthMiddleware, controller.surveyScenarios.GetAllSimulatedScenarios);
 
 export default router;
