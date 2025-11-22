@@ -18,6 +18,7 @@ import scenariosSurveyRouter from "./scenariosSurveyRoutes";
 import modelRouter from "./modelRoutes";
 import preAppSurveyRouter from "./preAppSurveyRoutes";
 import todoRouter from "./todoRoutes";
+import nightOutFreqRoutes from "../routes/nightOutFreqRoutes";
 
 const router = Router();
 
@@ -40,5 +41,6 @@ router.use("/scenarios-survey", scenariosSurveyRouter);
 router.use("/models", modelRouter);
 router.use("/pre-app-survey", preAppSurveyRouter);
 router.use("/todos", todoRouter);
+router.use("/night-out-freq", nightOutFreqRoutes);
 
 export default router;
