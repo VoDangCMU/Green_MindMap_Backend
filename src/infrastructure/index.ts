@@ -4,6 +4,8 @@ import { DataSource } from "typeorm";
 import Redis from "ioredis";
 import { logger, LoggerClient } from "./logger";
 
+export { logger };
+
 export class Infrastructure {
     database: DataSource;
     cache: Redis;

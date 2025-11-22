@@ -21,6 +21,7 @@ import preAppSurveyRouter from "./preAppSurveyRoutes";
 import todoRouter from "./todoRoutes";
 import healthyFoodRatioRouter from "./healthyFoodRatioRoutes";
 import nightOutFreqRoutes from "../routes/nightOutFreqRoutes";
+import metricsRouter from "./metricsRoutes";
 
 const router = Router();
 
@@ -46,5 +47,6 @@ router.use("/pre-app-survey", preAppSurveyRouter);
 router.use("/todos", todoRouter);
 router.use("/healthy-food-ratio", healthyFoodRatioRouter);
 router.use("/night-out-freq", nightOutFreqRoutes);
+router.use("/metrics", metricsRouter);
 
 export default router;

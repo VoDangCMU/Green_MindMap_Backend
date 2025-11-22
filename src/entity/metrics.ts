@@ -20,7 +20,7 @@ export class Metrics {
     userId!: string;
 
     @Column({type: "varchar", length: 100})
-    metric!: string;
+    type!: string;
 
     @Column({type: "double precision"})
     vt!: number;
@@ -36,6 +36,9 @@ export class Metrics {
 
     @Column({type: "double precision", nullable: true})
     contrib?: number;
+
+    @Column({type: "jsonb", nullable: true})
+    metadata?: any;
 
     @CreateDateColumn({type: 'timestamp'})
     createdAt!: Date;
