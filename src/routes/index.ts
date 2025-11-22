@@ -19,7 +19,7 @@ import modelRouter from "./modelRoutes";
 import preAppSurveyRouter from "./preAppSurveyRoutes";
 import todoRouter from "./todoRoutes";
 import nightOutFreqRoutes from "../routes/nightOutFreqRoutes";
-
+import healthyFoodRatioRouter from "./healthyFoodRatioRoutes";
 const router = Router();
 
 router.use("/check", checkRoutes);
@@ -41,6 +41,7 @@ router.use("/scenarios-survey", scenariosSurveyRouter);
 router.use("/models", modelRouter);
 router.use("/pre-app-survey", preAppSurveyRouter);
 router.use("/todos", todoRouter);
+router.use("/healthy-food-ratio", healthyFoodRatioRouter);
 router.use("/night-out-freq", nightOutFreqRoutes);
 
 export default router;
