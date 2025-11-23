@@ -9,8 +9,6 @@ import {
 } from 'typeorm';
 import {Locations} from "./locations";
 import {BigFive} from "./big_five";
-import {Scans} from "./scans";
-import {Invoices} from "./invoices";
 
 @Entity('users')
 export class User {
@@ -55,10 +53,4 @@ export class User {
 
     @OneToOne(() => BigFive, bigFive => bigFive.user)
     bigFive!: BigFive;
-
-    @OneToMany(() => Scans, scans => scans.user)
-    scans!: Scans[];
-
-    @OneToMany(() => Invoices, invoices => invoices.user)
-    invoices!: Invoices[];
 }
