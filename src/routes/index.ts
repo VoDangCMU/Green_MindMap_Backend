@@ -1,6 +1,5 @@
 import { Router } from "express";
 import questionRouter from "../routes/questionRoutes";
-import checkRoutes from "./checkRoutes";
 import userRoutes from "./userRoutes";
 import tokenRouter from "./tokenRoutes";
 import locationRouter from "./locationRoutes";
@@ -20,7 +19,6 @@ import metricsRouter from "./metricsRoutes";
 
 const router = Router();
 
-router.use("/check", checkRoutes);
 router.use("/auth", userRoutes); // Changed from /api/users to /auth
 router.use("/tokens", tokenRouter);
 router.use("/locations", locationRouter);
