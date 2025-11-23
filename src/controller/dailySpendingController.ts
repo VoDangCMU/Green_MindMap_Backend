@@ -9,29 +9,15 @@ import { logger } from "../infrastructure";
 const DailySpendingRepo = AppDataSource.getRepository(AvgDailySpend);
 const UserRepo = AppDataSource.getRepository(User);
 
-const API_URL = "https://ai-greenmind.khoav4.com/avg_daily_spend";
-
 const DEFAULTS = {
     weight: 0.2,
     sigma_r: 1.0,
     alpha: 0.5,
 };
 
-const DailySpendingParamsSchema = z.object({
-    date: z.string().date().optional(),
-    dailyTotal: z.number().optional(),
-    direction: z.string().default("down"),
-    baseAvg: z.number(),
-    weight: z.number().min(0).max(1).optional().default(DEFAULTS.weight),
-    sigma_r: z.number().optional().default(DEFAULTS.sigma_r),
-    alpha: z.number().optional().default(DEFAULTS.alpha),
-});
 
 const CreateOrUpdateSpendSchema = z.object({
-    spend: z.union([
-        z.array(z.number()),
-        z.number()
-    ]),
+    spend: z.number(),
     date: z.string().date().optional(),
 });
 
@@ -69,9 +55,7 @@ export class DailySpendingController {
             const targetDate = parsed.data.date ? new Date(parsed.data.date) : new Date();
             targetDate.setHours(0, 0, 0, 0);
 
-            const spendArray = Array.isArray(parsed.data.spend)
-                ? parsed.data.spend
-                : [parsed.data.spend];
+            const spendAmount = parsed.data.spend;
 
             let dailySpendRecord = await DailySpendingRepo.findOne({
                 where: {
@@ -81,9 +65,8 @@ export class DailySpendingController {
             });
 
             if (dailySpendRecord) {
-                const currentSpend = dailySpendRecord.spend || [];
-                dailySpendRecord.spend = [...currentSpend, ...spendArray];
-                dailySpendRecord.total_spend = dailySpendRecord.spend.reduce((sum, val) => sum + val, 0);
+                // Cập nhật: cộng thêm vào total_spend hiện tại
+                dailySpendRecord.total_spend += spendAmount;
 
                 const saved = await DailySpendingRepo.save(dailySpendRecord);
 
@@ -100,12 +83,10 @@ export class DailySpendingController {
                     data: saved
                 });
             } else {
-                const total = spendArray.reduce((sum, val) => sum + val, 0);
-
+                // Tạo mới
                 const newRecord = DailySpendingRepo.create({
                     user: user,
-                    spend: spendArray,
-                    total_spend: total,
+                    total_spend: spendAmount,
                     day_spend: targetDate
                 });
 

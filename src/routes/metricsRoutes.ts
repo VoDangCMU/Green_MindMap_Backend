@@ -29,4 +29,7 @@ router.post("/avg-daily-spend", jwtAuthMiddleware, controller.avgDailySpendMetri
 router.get("/healthy-food-ratio", jwtAuthMiddleware, controller.healthyFoodRatioMetric.getHealthyFoodRatio);
 router.post("/healthy-food-ratio", jwtAuthMiddleware, upload.single('file'), controller.healthyFoodRatioMetric.createOrUpdateHealthyFoodRatio);
 
+// Spend Variability endpoints
+router.get("/spend-variability", jwtAuthMiddleware, controller.spendVariabilityMetric.getSpendVariability);
+
 export default router;

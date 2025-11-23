@@ -20,8 +20,6 @@ import {
         @JoinColumn({ name: "userId" })
         user!: User;
 
-        @Column({ type: "simple-array" })
-        spend!: number[];
 
         @Column({ type: "double precision" })
         total_spend!: number;

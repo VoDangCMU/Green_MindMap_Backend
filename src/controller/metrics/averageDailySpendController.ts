@@ -204,12 +204,14 @@ class AverageDailySpendController {
                         continue;
                     }
 
+                    const direction = latestTotalSpend > avgSpend ? "up" : "down";
+
                     // Gọi API để tính toán metrics mới
                     const apiPayload = {
                         daily_total: latestTotalSpend,
                         base_avg: avgSpend,
                         weight: DEFAULTS.weight,
-                        direction: DEFAULTS.direction,
+                        direction: direction,
                         sigma_r: DEFAULTS.sigma_r,
                         alpha: DEFAULTS.alpha,
                         ocean_score: {

@@ -15,6 +15,7 @@ import preAppSurvey from "./preAppSurveyController";
 import nightOutFreq from "./nighOutFreqController";
 import avgDailySpendMetric from "./metrics/averageDailySpendController";
 import healthyFoodRatioMetric from "./metrics/healthyFoodRatioController";
+import spendVariabilityMetric from "./metrics/spendVariabilityController";
 
 export default {
     behavior,
@@ -23,6 +24,7 @@ export default {
     location,
     avgDailySpendMetric,
     healthyFoodRatioMetric,
+    spendVariabilityMetric,
     model,
     nightOutFreq,
     preAppSurvey,
