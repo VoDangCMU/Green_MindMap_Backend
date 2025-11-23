@@ -19,7 +19,7 @@ export class Metrics {
     @Column({type: "uuid"})
     userId!: string;
 
-    @Column({type: "varchar", length: 100})
+    @Column({type: "varchar", length: 100, nullable: true})
     type!: string;
 
     @Column({type: "double precision"})

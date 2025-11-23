@@ -21,9 +21,9 @@ import {
         user!: User;
 
 
-        @Column({ type: "double precision" })
+        @Column({ type: "double precision", nullable: true })
         total_spend!: number;
 
-        @Column({ type: "date" })
+        @Column({ type: "date", nullable: true })
         day_spend!: Date;
     }
