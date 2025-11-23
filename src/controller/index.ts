@@ -1,6 +1,5 @@
 import user from "./userController";
 import token from "./tokenController";
-import invoices from "./invoicesController";
 import questions from "./questionsController";
 import template from "./templateController";
 import trait from "./traitController";
@@ -14,15 +13,16 @@ import dailyPending from "./dailySpendingController";
 import {modelController as model} from "./modelController";
 import preAppSurvey from "./preAppSurveyController";
 import nightOutFreq from "./nighOutFreqController";
-import metrics from "./metricsController";
+import avgDailySpendMetric from "./metrics/averageDailySpendController";
+import healthyFoodRatioMetric from "./metrics/healthyFoodRatioController";
 
 export default {
     behavior,
     bigFive,
     dailyPending,
-    invoices,
     location,
-    metrics,
+    avgDailySpendMetric,
+    healthyFoodRatioMetric,
     model,
     nightOutFreq,
     preAppSurvey,
