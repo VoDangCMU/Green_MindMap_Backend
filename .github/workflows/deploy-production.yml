@@ -27,33 +27,29 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get update && sudo apt-get install -y sshpass
 
-      - name: Download .env from server
+      # Deploy Docker container
+      - name: Deploy Docker container
         env:
           SSHPASS: ${{ secrets.SERVER_PASSWORD }}
         run: |
-          sshpass -p "$SSHPASS" scp -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/tnqbao/.enviroment/green-mind-backend/staging.env ./deploy/k8s/staging/.env
+          sshpass -p "$SSHPASS" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+          
+          set -e
 
-      - name: Download kubeconfig.yaml from server
-        env:
-          SSHPASS: ${{ secrets.SERVER_PASSWORD }}
-        run: |
-          mkdir -p ./deploy/k8s/staging
-          sshpass -p "$SSHPASS" scp -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/.secret/k8s/kubeconfig.yaml ./deploy/k8s/staging/kubeconfig.yaml
+          cd Greend_Mindmap_Backend
 
-      - name: Set KUBECONFIG environment variable
-        run: echo "KUBECONFIG=$GITHUB_WORKSPACE/deploy/k8s/staging/kubeconfig.yaml" >> $GITHUB_ENV
+          echo "--- Pull latest image ---"
+          docker pull iamqbao/green_mind_backend:latest
 
-      - name: Check Kubernetes access
-        run: kubectl get nodes
+          echo "--- Remove old container ---"
+          docker rm -f green-mind-backend || true
 
-      - name: Make scripts executable
-        run: |
-          chmod +x ./deploy/k8s/staging/apply.sh
+          echo "--- Run new container ---"
+          docker run -d \
+            --name green-mind-backend \
+            --env-file /home/tnqbao/staging.env \
+            -p 8080:8080 \
+            iamqbao/green_mind_backend:latest
 
-      - name: Apply manifests to Kubernetes
-        working-directory: ./deploy/k8s/staging
-        run: ./apply.sh
-
-      - name: Restart pods
-        run: |
-          kubectl rollout restart deployment green-mind-backend-deployment -n vo-dang-staging-env
+          echo "Deployment complete!"
+          EOF
