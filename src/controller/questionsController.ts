@@ -895,6 +895,8 @@ export class QuestionsController {
             // Query questions with location or age matching - ONLY filtered results
             const queryBuilder = QuestionsRepository.createQueryBuilder('question')
                 .leftJoinAndSelect('question.template', 'template')
+                .leftJoinAndSelect('template.model', 'model')
+                .leftJoinAndSelect('question.model', 'questionModel')
                 .leftJoinAndSelect('question.questionOptions', 'options')
                 .orderBy('options.order', 'ASC'); // Ensure options are ordered correctly
 
@@ -1023,6 +1025,38 @@ export class QuestionsController {
                 }
             };
 
+            // Helper function to extract trait from various sources
+            const extractTrait = (question: Questions): string | null => {
+                // Priority 1: question.trait
+                if (question.trait) {
+                    return question.trait.toUpperCase();
+                }
+
+                // Priority 2: template.trait
+                if (question.template?.trait) {
+                    return question.template.trait.toUpperCase();
+                }
+
+                // Priority 3: Extract from template.intent (e.g., "O_F_001" -> "O")
+                if (question.template?.intent) {
+                    const match = question.template.intent.match(/^([OCEAN])/i);
+                    if (match) {
+                        return match[1].toUpperCase();
+                    }
+                }
+
+                // Priority 4: Extract from model.ocean
+                const model = question.model || question.template?.model;
+                if (model?.ocean) {
+                    const match = model.ocean.match(/^([OCEAN])/i);
+                    if (match) {
+                        return match[1].toUpperCase();
+                    }
+                }
+
+                return null;
+            };
+
             // Transform questions to response format with fallback options
             const transformedQuestions = filteredQuestions.map(question => {
                 let options = question.questionOptions
@@ -1049,12 +1083,25 @@ export class QuestionsController {
                     }
                 }
 
+                // Get model data (prefer question's model, fallback to template's model)
+                const modelData = question.model || question.template?.model;
+
                 return {
                     id: question.id,
                     question: question.question,
                     templateId: question.templateId,
                     behaviorInput: question.behaviorInput,
                     behaviorNormalized: question.behaviorNormalized,
+                    trait: extractTrait(question),
+                    model: modelData ? {
+                        id: modelData.id,
+                        ocean: modelData.ocean,
+                        behavior: modelData.behavior,
+                        age: modelData.age,
+                        location: modelData.location,
+                        gender: modelData.gender,
+                        keywords: modelData.keywords
+                    } : null,
                     template: {
                         id: question.template?.id,
                         name: question.template?.name,

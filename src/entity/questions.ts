@@ -12,6 +12,7 @@ import {ThreadHall} from "./thread_halls";
 import {UserAnswers} from "./user_answers";
 import {QuestionOptions} from "./question_options";
 import {SurveyScenario} from "../entity/survey_scenario";
+import {Models} from "./models";
 
 export const QUESTIONS_TABLE_NAME = 'questions';
 
@@ -37,6 +38,13 @@ export class Questions {
 
     @Column({type: 'decimal', precision: 5, scale: 2, nullable: true})
     normalizeScore?: number;
+
+    @Column({type: 'varchar', nullable: true})
+    trait?: string;
+
+
+    @ManyToOne(() => Models, {nullable: true})
+    model?: Models;
 
     @CreateDateColumn({type: 'timestamp'})
     createdAt!: Date;

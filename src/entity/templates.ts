@@ -1,6 +1,7 @@
-import {Column, CreateDateColumn, Entity, OneToMany, OneToOne,PrimaryColumn, UpdateDateColumn, JoinColumn} from "typeorm";
+import {Column, CreateDateColumn, Entity, OneToMany, OneToOne, PrimaryColumn, UpdateDateColumn, ManyToOne} from "typeorm";
 import {Questions} from "./questions";
 import {TemplateAnswer} from "./template_answers";
+import {Models} from "./models";
 
 export const TEMPLATES_TABLE_NAME = 'templates';
 
@@ -29,6 +30,13 @@ export class Template {
 
     @Column({type: "text", nullable: true})
     filled_prompt?: string;
+
+    @Column({type: "varchar", nullable: true})
+    trait?: string;
+
+
+    @ManyToOne(() => Models, {nullable: true})
+    model?: Models;
 
     @OneToOne(() => TemplateAnswer, (answer) => answer.template, { cascade: true, onDelete: "CASCADE" })
     answer!: TemplateAnswer;
