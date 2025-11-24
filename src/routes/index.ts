@@ -16,6 +16,8 @@ import preAppSurveyRouter from "./preAppSurveyRoutes";
 import todoRouter from "./todoRoutes";
 import nightOutFreqRoutes from "../routes/nightOutFreqRoutes";
 import metricsRouter from "./metricsRoutes";
+import brandRouter from "./brandRoutes";
+import ocrRouter from "./ocrRoutes";
 
 const router = Router();
 
@@ -36,5 +38,7 @@ router.use("/pre-app-survey", preAppSurveyRouter);
 router.use("/todos", todoRouter);
 router.use("/night-out-freq", nightOutFreqRoutes);
 router.use("/metrics", metricsRouter);
+router.use("/brands", brandRouter);
+router.use("/ocr", ocrRouter);
 
 export default router;

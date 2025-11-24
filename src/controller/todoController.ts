@@ -2,6 +2,9 @@ import { Request, Response, RequestHandler } from "express";
 import AppDataSource from "../infrastructure/database";
 import { Todo } from "../entity/todos";
 import { getLogger } from "../infrastructure/logger";
+import { Metrics } from "../entity/metrics";
+import { BigFive } from "../entity/big_five";
+import axios from "axios";
 
 interface TodoNode {
     title: string;
@@ -19,6 +22,22 @@ interface CreateTodoRequest {
 
 interface CreateTodosListRequest {
     todos: CreateTodoRequest[];
+}
+
+interface ListAdherenceResponse {
+    metric: string;
+    vt: number;
+    bt: number;
+    r: number;
+    n: number;
+    contrib: number;
+    new_ocean_score: {
+        O: number;
+        C: number;
+        E: number;
+        A: number;
+        N: number;
+    };
 }
 
 class TodoController {
@@ -283,11 +302,23 @@ class TodoController {
                 subtasks
             };
 
+            // Get list adherence from metrics table or calculate first time
+            const adherenceResult = await this.getOrCalculateListAdherence(userId);
+
             logger.info("Todo retrieved", { todoId: id, userId });
-            res.status(200).json({
-                message: "Todo retrieved successfully",
-                data: result
-            });
+
+            if (adherenceResult) {
+                res.status(200).json({
+                    message: "Todo retrieved successfully",
+                    data: result,
+                    listAdherence: adherenceResult
+                });
+            } else {
+                res.status(200).json({
+                    message: "Todo retrieved successfully",
+                    data: result
+                });
+            }
         } catch (error) {
             logger.error("Error getting todo", error as Error);
             res.status(500).json({ message: "Internal server error" });
@@ -349,10 +380,22 @@ class TodoController {
             await todoRepository.save(todo);
 
             logger.info("Todo updated", { todoId: id, userId });
-            res.status(200).json({
-                message: "Todo updated successfully",
-                data: todo
-            });
+
+            // Process list adherence after updating todo - always call API
+            const adherenceResult = await this.processListAdherence(userId);
+
+            if (adherenceResult) {
+                res.status(200).json({
+                    message: "Todo updated successfully",
+                    data: todo,
+                    listAdherence: adherenceResult
+                });
+            } else {
+                res.status(200).json({
+                    message: "Todo updated successfully",
+                    data: todo
+                });
+            }
         } catch (error) {
             logger.error("Error updating todo", error as Error);
             res.status(500).json({ message: "Internal server error" });
@@ -439,6 +482,229 @@ class TodoController {
             res.status(500).json({ message: "Internal server error" });
         }
     };
+
+    /**
+     * Helper function to get all todos in flat format for list adherence API
+     */
+    private async getTodosForAdherence(userId: string): Promise<Array<{ task: string; done: boolean }>> {
+        const todoRepository = AppDataSource.getRepository(Todo);
+        const allTodos = await todoRepository.find({
+            where: { user_id: userId },
+            order: { order: 'ASC' }
+        });
+
+        return allTodos.map(todo => ({
+            task: todo.title,
+            done: todo.completed
+        }));
+    }
+
+    /**
+     * Helper function to call list adherence API and update metrics
+     */
+    private async processListAdherence(userId: string): Promise<ListAdherenceResponse | null> {
+        const logger = getLogger();
+
+        try {
+            const metricsRepository = AppDataSource.getRepository(Metrics);
+            const bigFiveRepository = AppDataSource.getRepository(BigFive);
+
+            // Get todos
+            const todos = await this.getTodosForAdherence(userId);
+
+            // Get or create base_likert from metrics
+            let metricsRecord = await metricsRepository.findOne({
+                where: { userId, type: 'list_adherence' },
+                order: { createdAt: 'DESC' }
+            });
+
+            let baseLikert = 4; // default
+            if (metricsRecord && metricsRecord.metadata && metricsRecord.metadata.base_likert) {
+                baseLikert = metricsRecord.metadata.base_likert;
+            }
+
+            // Get ocean_score from big_five
+            const bigFive = await bigFiveRepository.findOne({
+                where: { user: { id: userId } },
+                relations: ['user']
+            });
+
+            if (!bigFive) {
+                logger.warn("BigFive not found for user", { userId });
+                return null;
+            }
+
+            const oceanScore = {
+                O: bigFive.openness,
+                C: bigFive.conscientiousness,
+                E: bigFive.extraversion,
+                A: bigFive.agreeableness,
+                N: bigFive.neuroticism
+            };
+
+            // Call AI API
+            const requestData = {
+                todos,
+                base_likert: baseLikert,
+                weight: 0.3,
+                direction: "up",
+                sigma_r: 1.0,
+                alpha: 0.5,
+                ocean_score: oceanScore
+            };
+
+            const response = await axios.post<ListAdherenceResponse>(
+                'https://ai-greenmind.khoav4.com/list_adherence',
+                requestData,
+                {
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: 10000
+                }
+            );
+
+            const result = response.data;
+
+            // Save to metrics table
+            const newMetrics = metricsRepository.create({
+                userId,
+                type: 'list_adherence',
+                vt: result.vt,
+                bt: result.bt,
+                r: result.r,
+                n: result.n,
+                contrib: result.contrib,
+                metadata: { base_likert: baseLikert }
+            });
+
+            await metricsRepository.save(newMetrics);
+
+            // Update big_five table
+            bigFive.openness = result.new_ocean_score.O;
+            bigFive.conscientiousness = result.new_ocean_score.C;
+            bigFive.extraversion = result.new_ocean_score.E;
+            bigFive.agreeableness = result.new_ocean_score.A;
+            bigFive.neuroticism = result.new_ocean_score.N;
+
+            await bigFiveRepository.save(bigFive);
+
+            logger.info("List adherence processed", { userId, metric: result.metric });
+
+            return result;
+        } catch (error) {
+            logger.error("Error processing list adherence", error as Error);
+            return null;
+        }
+    }
+
+    /**
+     * Get or calculate list adherence for a user
+     */
+    private async getOrCalculateListAdherence(userId: string): Promise<ListAdherenceResponse | null> {
+        const logger = getLogger();
+
+        try {
+            const metricsRepository = AppDataSource.getRepository(Metrics);
+            const bigFiveRepository = AppDataSource.getRepository(BigFive);
+
+            // Check if metrics record exists
+            let metricsRecord = await metricsRepository.findOne({
+                where: { userId, type: 'list_adherence' },
+                order: { createdAt: 'DESC' }
+            });
+
+            if (metricsRecord) {
+                // Return existing metrics
+                return {
+                    metric: metricsRecord.type,
+                    vt: metricsRecord.vt || 0,
+                    bt: metricsRecord.bt || 0,
+                    r: metricsRecord.r || 0,
+                    n: metricsRecord.n || 0,
+                    contrib: metricsRecord.contrib || 0,
+                    new_ocean_score: metricsRecord.metadata?.new_ocean_score || {
+                        O: 0, C: 0, E: 0, A: 0, N: 0
+                    }
+                };
+            }
+
+            // If no metrics record, calculate using AI API
+            const todos = await this.getTodosForAdherence(userId);
+
+            // Default base_likert
+            let baseLikert = 4;
+
+            // Get ocean_score from big_five
+            const bigFive = await bigFiveRepository.findOne({
+                where: { user: { id: userId } },
+                relations: ['user']
+            });
+
+            if (!bigFive) {
+                logger.warn("BigFive not found for user", { userId });
+                return null;
+            }
+
+            const oceanScore = {
+                O: bigFive.openness,
+                C: bigFive.conscientiousness,
+                E: bigFive.extraversion,
+                A: bigFive.agreeableness,
+                N: bigFive.neuroticism
+            };
+
+            // Call AI API
+            const requestData = {
+                todos,
+                base_likert: baseLikert,
+                weight: 0.3,
+                direction: "up",
+                sigma_r: 1.0,
+                alpha: 0.5,
+                ocean_score: oceanScore
+            };
+
+            const response = await axios.post<ListAdherenceResponse>(
+                'https://ai-greenmind.khoav4.com/list_adherence',
+                requestData,
+                {
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: 10000
+                }
+            );
+
+            const result = response.data;
+
+            // Save to metrics table
+            const newMetrics = metricsRepository.create({
+                userId,
+                type: 'list_adherence',
+                vt: result.vt,
+                bt: result.bt,
+                r: result.r,
+                n: result.n,
+                contrib: result.contrib,
+                metadata: { base_likert: baseLikert }
+            });
+
+            await metricsRepository.save(newMetrics);
+
+            // Update big_five table
+            bigFive.openness = result.new_ocean_score.O;
+            bigFive.conscientiousness = result.new_ocean_score.C;
+            bigFive.extraversion = result.new_ocean_score.E;
+            bigFive.agreeableness = result.new_ocean_score.A;
+            bigFive.neuroticism = result.new_ocean_score.N;
+
+            await bigFiveRepository.save(bigFive);
+
+            logger.info("List adherence calculated and saved", { userId, metric: result.metric });
+
+            return result;
+        } catch (error) {
+            logger.error("Error getting or calculating list adherence", error as Error);
+            return null;
+        }
+    }
 }
 
 export default new TodoController();
