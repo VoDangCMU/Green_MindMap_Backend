@@ -529,6 +529,177 @@ class SurveyScenarioController {
             });
         }
     };
+
+    public GetSimulatedScenario: RequestHandler = async (req, res) => {
+        try {
+            const { id: scenarioId } = req.params;
+
+            if (!scenarioId) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Scenario ID is required"
+                });
+            }
+
+            // Find scenario with all related data
+            const scenario = await this.SurveyScenarioRepo.findOne({
+                where: { id: scenarioId },
+                relations: ["questions", "questions.questionOptions", "questions.template", "questions.model", "questions.template.model"],
+            });
+
+            if (!scenario) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Scenario not found"
+                });
+            }
+
+            if (!scenario.questions || scenario.questions.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: "No questions found in this scenario",
+                    scenarioId: scenario.id
+                });
+            }
+
+            // Helper function to generate default options based on question type
+            const generateDefaultOptions = (questionType: string) => {
+                switch (questionType?.toLowerCase()) {
+                    case 'yesno':
+                    case 'binary':
+                        return [
+                            { text: 'Có', value: 'yes', order: 0 },
+                            { text: 'Không', value: 'no', order: 1 }
+                        ];
+                    case 'frequency':
+                        return [
+                            { text: 'Không bao giờ', value: '1', order: 0 },
+                            { text: 'Thỉnh thoảng', value: '2', order: 1 },
+                            { text: 'Thường xuyên', value: '3', order: 2 },
+                            { text: 'Rất thường xuyên', value: '4', order: 3 }
+                        ];
+                    case 'likert5':
+                        return [
+                            { text: 'Rất không thích', value: '1', order: 0 },
+                            { text: 'Không thích', value: '2', order: 1 },
+                            { text: 'Bình thường', value: '3', order: 2 },
+                            { text: 'Thích', value: '4', order: 3 },
+                            { text: 'Rất thích', value: '5', order: 4 }
+                        ];
+                    case 'rating':
+                        return [
+                            { text: 'Rất tệ', value: '1', order: 0 },
+                            { text: 'Tệ', value: '2', order: 1 },
+                            { text: 'Bình thường', value: '3', order: 2 },
+                            { text: 'Tốt', value: '4', order: 3 },
+                            { text: 'Rất tốt', value: '5', order: 4 }
+                        ];
+                    default:
+                        return [];
+                }
+            };
+
+            // Helper function to extract trait from various sources
+            const extractTrait = (question: Questions): string | null => {
+                if (question.trait) {
+                    return question.trait.toUpperCase();
+                }
+                if (question.template?.trait) {
+                    return question.template.trait.toUpperCase();
+                }
+                if (question.template?.intent) {
+                    const match = question.template.intent.match(/^([OCEAN])/i);
+                    if (match) {
+                        return match[1].toUpperCase();
+                    }
+                }
+                const model = question.model || question.template?.model;
+                if (model?.ocean) {
+                    const match = model.ocean.match(/^([OCEAN])/i);
+                    if (match) {
+                        return match[1].toUpperCase();
+                    }
+                }
+                return null;
+            };
+
+            // Transform questions to response format
+            const transformedQuestions = scenario.questions.map(question => {
+                let options = question.questionOptions
+                    ?.sort((a, b) => a.order - b.order)
+                    ?.map(option => ({
+                        text: option.text,
+                        value: option.value,
+                        order: option.order
+                    })) || [];
+
+                const questionType = question.template?.question_type;
+                if (!options.length ||
+                    (questionType === 'yesno' && options.length < 2) ||
+                    (questionType === 'binary' && options.length < 2) ||
+                    (questionType === 'frequency' && options.length < 4) ||
+                    (questionType === 'likert5' && options.length < 5) ||
+                    (questionType === 'rating' && options.length < 5)) {
+
+                    const defaultOptions = questionType ? generateDefaultOptions(questionType) : [];
+                    if (defaultOptions.length > 0) {
+                        options = defaultOptions;
+                    }
+                }
+
+                const modelData = question.model || question.template?.model;
+
+                return {
+                    id: question.id,
+                    question: question.question,
+                    templateId: question.templateId,
+                    behaviorInput: question.behaviorInput,
+                    behaviorNormalized: question.behaviorNormalized,
+                    trait: extractTrait(question),
+                    model: modelData ? {
+                        id: modelData.id,
+                        ocean: modelData.ocean,
+                        behavior: modelData.behavior,
+                        age: modelData.age,
+                        location: modelData.location,
+                        gender: modelData.gender,
+                        keywords: modelData.keywords
+                    } : null,
+                    template: question.template ? {
+                        id: question.template.id,
+                        intent: question.template.intent,
+                        question_type: question.template.question_type,
+                        trait: question.template.trait
+                    } : null,
+                    options: options,
+                    createdAt: question.createdAt,
+                    updatedAt: question.updatedAt
+                };
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: "Simulated scenario data retrieved successfully",
+                data: transformedQuestions,
+                count: transformedQuestions.length,
+                scenarioInfo: {
+                    scenarioId: scenario.id,
+                    minAge: scenario.minAge,
+                    maxAge: scenario.maxAge,
+                    location: scenario.location,
+                    gender: scenario.gender,
+                    status: scenario.status
+                }
+            });
+        } catch (error: any) {
+            logger.error("Error getting simulated scenario", error);
+            return res.status(500).json({
+                success: false,
+                message: "Internal Server Error",
+                error: error.message
+            });
+        }
+    };
 }
 
 export default new SurveyScenarioController();
