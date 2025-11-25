@@ -4,12 +4,14 @@ import AppDataSource from '../../infrastructure/database';
 import { BigFive } from '../../entity/big_five';
 import { Metrics } from '../../entity/metrics';
 import { User } from '../../entity/user';
+import { BehaviorFeedback } from '../../entity/behavior_feedback';
 import { logger } from '../../infrastructure';
 import axios from 'axios';
 
 const BigFiveRepository = AppDataSource.getRepository(BigFive);
 const MetricsRepository = AppDataSource.getRepository(Metrics);
 const UserRepository = AppDataSource.getRepository(User);
+const BehaviorFeedbackRepository = AppDataSource.getRepository(BehaviorFeedback);
 
 const API_URL = "https://ai-greenmind.khoav4.com/novel_location_ratio";
 
@@ -275,6 +277,25 @@ class NovelLocationRatioController {
                 type: "novel_location_ratio"
             });
 
+            // Save feedback to behavior_feedbacks table
+            if (result.mechanismFeedback) {
+                const behaviorFeedback = BehaviorFeedbackRepository.create({
+                    userId: userId,
+                    metric: "novel_location_ratio",
+                    vt: result.vt,
+                    bt: result.bt,
+                    r: result.r,
+                    n: result.n,
+                    contrib: result.contrib,
+                    mechanismFeedback: result.mechanismFeedback,
+                    reason: result.reason,
+                    oceanScore: result.new_ocean_score
+                });
+
+                await BehaviorFeedbackRepository.save(behaviorFeedback);
+                logger.info("Behavior feedback saved", { userId, feedbackId: behaviorFeedback.id });
+            }
+
             // Return the exact format as received from API
             return res.status(200).json(result);
 
@@ -302,4 +323,3 @@ class NovelLocationRatioController {
 }
 
 export default new NovelLocationRatioController();
-

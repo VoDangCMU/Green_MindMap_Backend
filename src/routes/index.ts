@@ -7,6 +7,7 @@ import templateRouter from "./templateRoutes";
 import traitRouter from "./traitRoutes";
 import bigFiveRouter from "./bigFiveRoutes";
 import behaviorRouter from "./behaviorRoutes";
+import behaviorFeedbackRouter from "./behaviorFeedbackRoutes";
 import threadHallRouter from "./threadHallRoutes";
 import userAnswersRouter from "./userAnswersRoutes";
 import scenariosSurveyRouter from "./scenariosSurveyRoutes";
@@ -21,7 +22,7 @@ import healthyFoodRouter from "./healthyFoodRoutes";
 
 const router = Router();
 
-router.use("/auth", userRoutes); // Changed from /api/users to /auth
+router.use("/auth", userRoutes);
 router.use("/tokens", tokenRouter);
 router.use("/locations", locationRouter);
 router.use("/questions", questionRouter);
@@ -29,6 +30,7 @@ router.use("/templates", templateRouter);
 router.use("/traits", traitRouter);
 router.use("/big-five", bigFiveRouter);
 router.use("/behaviors", behaviorRouter);
+router.use("/behavior-feedbacks", behaviorFeedbackRouter);
 router.use("/thread-halls", threadHallRouter);
 router.use("/user-answers", userAnswersRouter);
 router.use("/scenarios-survey", scenariosSurveyRouter);

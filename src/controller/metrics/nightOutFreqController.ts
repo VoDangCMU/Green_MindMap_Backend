@@ -5,6 +5,7 @@ import AppDataSource from "../../infrastructure/database";
 import { User } from "../../entity/user";
 import { BigFive } from "../../entity/big_five";
 import { Metrics } from "../../entity/metrics";
+import { BehaviorFeedback } from "../../entity/behavior_feedback";
 import NUMBER from "../../config/schemas/Number";
 import TEXT from "../../config/schemas/Text";
 import { logger } from "../../infrastructure";
@@ -53,6 +54,7 @@ const AI_API_URL = "https://ai-greenmind.khoav4.com/night_out_freq";
 const BigFiveRepository = AppDataSource.getRepository(BigFive);
 const UserRepository = AppDataSource.getRepository(User);
 const MetricsRepository = AppDataSource.getRepository(Metrics);
+const BehaviorFeedbackRepository = AppDataSource.getRepository(BehaviorFeedback);
 
 class NightOutFreqController {
     public getNightOutFreq = async (req: Request, res: Response) => {
@@ -225,6 +227,25 @@ class NightOutFreqController {
 
             await MetricsRepository.save(metricRecord);
             logger.info("Metrics updated", { userId, metricId: metricRecord.id });
+
+            // Save feedback to behavior_feedbacks table
+            if (aiData.mechanismFeedback) {
+                const behaviorFeedback = BehaviorFeedbackRepository.create({
+                    userId: userId,
+                    metric: "night_out_freq",
+                    vt: aiData.vt,
+                    bt: aiData.bt,
+                    r: aiData.r,
+                    n: aiData.n,
+                    contrib: aiData.contrib,
+                    mechanismFeedback: aiData.mechanismFeedback,
+                    reason: aiData.reason,
+                    oceanScore: aiData.new_ocean_score
+                });
+
+                await BehaviorFeedbackRepository.save(behaviorFeedback);
+                logger.info("Behavior feedback saved", { userId, feedbackId: behaviorFeedback.id });
+            }
 
             // Update BigFive with new ocean scores
             if (aiData.new_ocean_score) {

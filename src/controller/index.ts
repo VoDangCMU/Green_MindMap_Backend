@@ -6,6 +6,7 @@ import trait from "./traitController";
 import location from "./locationController";
 import bigFive from "./bigFiveController";
 import behavior from "./behaviorController";
+import behaviorFeedback from "./behaviorFeedbackController";
 import threadHall from "./threadHallController";
 import userAnswers from "./userAnswersController";
 import surveyScenarios from "./surveyScenarioController";
@@ -23,6 +24,7 @@ import nightOutFreqMetric from "./metrics/nightOutFreqController";
 
 export default {
     behavior,
+    behaviorFeedback,
     bigFive,
     dailyPending,
     location,
