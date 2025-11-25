@@ -14,7 +14,6 @@ import modelRouter from "./modelRoutes";
 import dailySpendingRouter from "./dailySpendingRoutes";
 import preAppSurveyRouter from "./preAppSurveyRoutes";
 import todoRouter from "./todoRoutes";
-import nightOutFreqRoutes from "../routes/nightOutFreqRoutes";
 import metricsRouter from "./metricsRoutes";
 import brandRouter from "./brandRoutes";
 import ocrRouter from "./ocrRoutes";
@@ -37,7 +36,6 @@ router.use("/models", modelRouter);
 router.use("/daily-spending", dailySpendingRouter)
 router.use("/pre-app-survey", preAppSurveyRouter);
 router.use("/todos", todoRouter);
-router.use("/night-out-freq", nightOutFreqRoutes);
 router.use("/metrics", metricsRouter);
 router.use("/brands", brandRouter);
 router.use("/ocr", ocrRouter);

@@ -12,7 +12,6 @@ import surveyScenarios from "./surveyScenarioController";
 import dailyPending from "./dailySpendingController";
 import {modelController as model} from "./modelController";
 import preAppSurvey from "./preAppSurveyController";
-import nightOutFreq from "./nighOutFreqController";
 import avgDailySpendMetric from "./metrics/averageDailySpendController";
 import spendVariabilityMetric from "./metrics/spendVariabilityController";
 import brandNoveltyMetric from "./metrics/brandNoveltyController";
@@ -20,6 +19,7 @@ import listAdherenceMetric from "./metrics/listAdherenceController";
 import dailyDistanceKmMetric from "./metrics/dailyDistanceKmController";
 import novelLocationRatioMetric from "./metrics/novelLocationRatioController";
 import publicTransitRatioMetric from "./metrics/publicTransitRatioController";
+import nightOutFreqMetric from "./metrics/nightOutFreqController";
 
 export default {
     behavior,
@@ -33,8 +33,8 @@ export default {
     dailyDistanceKmMetric,
     novelLocationRatioMetric,
     publicTransitRatioMetric,
+    nightOutFreqMetric,
     model,
-    nightOutFreq,
     preAppSurvey,
     questions,
     surveyScenarios,

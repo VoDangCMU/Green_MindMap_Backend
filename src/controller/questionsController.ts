@@ -5,6 +5,7 @@ import { Questions } from '../entity/questions';
 import { QuestionOptions } from '../entity/question_options';
 import { Template } from '../entity/templates';
 import { ThreadHall } from '../entity/thread_halls';
+import { Models } from '../entity/models';
 import { logger } from '../infrastructure/logger';
 
 const QuestionSchema = z.object({
@@ -43,6 +44,8 @@ const QuestionFromPayloadSchema = z.object({
     question_type: z.string(),
     filled_prompt: z.string(),
     answer: AnswerSchema,
+    modelId: z.string().uuid().optional(),
+    trait: z.string().max(1).optional(), // O, C, E, A, N
 });
 
 const CreateQuestionsRequestSchema = z.object({
@@ -53,6 +56,7 @@ const QuestionsRepository = AppDataSource.getRepository(Questions);
 const QuestionOptionsRepository = AppDataSource.getRepository(QuestionOptions);
 const TemplateRepository = AppDataSource.getRepository(Template);
 const ThreadHallRepository = AppDataSource.getRepository(ThreadHall);
+const ModelsRepository = AppDataSource.getRepository(Models);
 
 function validateQuestionParams(req: Request, res: Response) {
     const parsed = QuestionSchema.safeParse(req.body);
@@ -249,16 +253,38 @@ export class QuestionsController {
                             question: questionData.filled_prompt,
                             templateId: questionData.id
                         },
-                        relations: ["questionOptions"]
+                        relations: ["questionOptions", "model"]
                     });
 
                     if (!existedQuestion) {
-                        // Create new question
+                        // Validate and get model if modelId is provided
+                        let model = null;
+                        if (questionData.modelId) {
+                            model = await ModelsRepository.findOne({
+                                where: { id: questionData.modelId }
+                            });
+                            if (!model) {
+                                errors.push(`Question ${i + 1}: Model with ID ${questionData.modelId} not found, proceeding without model`);
+                            }
+                        }
+
+                        // Extract trait from intent if not provided (e.g., "O_F_001" -> "O")
+                        let trait = questionData.trait;
+                        if (!trait && questionData.intent) {
+                            const match = questionData.intent.match(/^([OCEAN])/i);
+                            if (match) {
+                                trait = match[1].toUpperCase();
+                            }
+                        }
+
+                        // Create new question with modelId and trait
                         const newQuestion = QuestionsRepository.create({
                             question: questionData.filled_prompt,
                             templateId: questionData.id,
                             behaviorInput: questionData.name,
                             behaviorNormalized: questionData.intent,
+                            trait: trait,
+                            model: model || undefined
                         });
 
                         const savedQuestion = await QuestionsRepository.save(newQuestion);
@@ -294,13 +320,14 @@ export class QuestionsController {
                             await QuestionOptionsRepository.save(questionOptions);
                         }
 
-                        // Reload question with options
+                        // Reload question with options and model
                         const questionWithOptions = await QuestionsRepository.findOne({
                             where: { id: savedQuestion.id },
-                            relations: ["questionOptions"]
+                            relations: ["questionOptions", "model"]
                         });
 
                         savedQuestions.push(questionWithOptions);
+                        logger.info(`Question created with trait: ${trait}, modelId: ${model?.id || 'none'}`);
                     } else {
                         // Exact duplicate question exists, skip
                         savedQuestions.push(existedQuestion);

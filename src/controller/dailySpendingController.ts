@@ -284,6 +284,82 @@ export class DailySpendingController {
             });
         }
     };
+
+    public getAverageDailySpend = async (req: Request, res: Response) => {
+        try {
+            const userId = req.user?.userId;
+            if (!userId) {
+                logger.warn("Unauthorized access to getAverageDailySpend");
+                return res.status(401).json({ error: "Unauthorized" });
+            }
+
+            logger.info("getAverageDailySpend called", { userId });
+
+            // Tìm metric avg_daily_spend của user
+            const metricRecord = await MetricsRepo.findOne({
+                where: {
+                    userId: userId,
+                    type: "avg_daily_spend"
+                }
+            });
+
+            if (!metricRecord) {
+                logger.warn("No avg_daily_spend metric found for user", { userId });
+                return res.status(404).json({
+                    error: "No avg_daily_spend metric found for this user"
+                });
+            }
+
+            // Lấy big_five hiện tại của user
+            const user = await UserRepo.findOne({
+                where: { id: userId },
+                relations: {
+                    bigFive: true
+                }
+            });
+
+            if (!user || !user.bigFive) {
+                logger.warn("User or big five data not found", { userId });
+                return res.status(404).json({
+                    error: "User or big five data not found"
+                });
+            }
+
+            const response = {
+                metric: "avg_daily_spend",
+                vt: metricRecord.vt,
+                bt: metricRecord.bt,
+                r: metricRecord.r,
+                n: metricRecord.n,
+                contrib: metricRecord.contrib || 0,
+                new_ocean_score: {
+                    O: user.bigFive.openness,
+                    C: user.bigFive.conscientiousness,
+                    E: user.bigFive.extraversion,
+                    A: user.bigFive.agreeableness,
+                    N: user.bigFive.neuroticism
+                },
+                mechanismFeedback: metricRecord.metadata?.mechanismFeedback || null,
+                reason: metricRecord.metadata?.reason || null
+            };
+
+            logger.info("Successfully retrieved avg_daily_spend metric", {
+                userId,
+                metric: response
+            });
+
+            return res.status(200).json(response);
+
+        } catch (e) {
+            logger.error("Failed to get avg_daily_spend metric", e as Error, {
+                userId: req.user?.userId
+            });
+            return res.status(500).json({
+                error: "Failed to get avg_daily_spend metric",
+                details: e instanceof Error ? e.message : String(e),
+            });
+        }
+    };
 }
 
 export default new DailySpendingController();

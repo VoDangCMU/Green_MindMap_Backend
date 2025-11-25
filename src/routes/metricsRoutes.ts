@@ -32,4 +32,8 @@ router.post("/novel-location-ratio", jwtAuthMiddleware, controller.novelLocation
 router.get("/public-transit-ratio", jwtAuthMiddleware, controller.publicTransitRatioMetric.getPublicTransitRatio);
 router.post("/public-transit-ratio", jwtAuthMiddleware, controller.publicTransitRatioMetric.updatePublicTransitRatio);
 
+// Night Out Freq endpoints
+router.get("/night-out-freq", jwtAuthMiddleware, controller.nightOutFreqMetric.getNightOutFreq);
+router.post("/night-out-freq", jwtAuthMiddleware, controller.nightOutFreqMetric.countNightOut);
+
 export default router;
