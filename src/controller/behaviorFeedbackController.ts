@@ -16,11 +16,8 @@ class BehaviorFeedbackController {
 
             logger.info("getAllBehaviorFeedback called", { userId });
 
-            // Get all behavior feedbacks for this user
+            // Get all behavior feedbacks (not filtered by user)
             const feedbacks = await BehaviorFeedbackRepository.find({
-                where: {
-                    userId: userId
-                },
                 order: {
                     createdAt: "DESC"
                 }
@@ -52,4 +49,3 @@ class BehaviorFeedbackController {
 }
 
 export default new BehaviorFeedbackController();
-
