@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import controller from '../controller';
+import surveyVerifyController from '../controller/surveyVerifyController';
 import { jwtAuthMiddleware } from '../middlewares/jwtMiddleware';
 import { staffOrAdminMiddleware, adminMiddleware } from '../middlewares/adminMiddleware';
 
@@ -15,6 +16,9 @@ router.post('/batch', jwtAuthMiddleware, staffOrAdminMiddleware, controller.ques
 
 // Create multiple questions from direct payload (staff/admin only)
 router.post('/createQuestions', controller.questions.createQuestions);
+
+// Survey verify - no auth required
+router.post('/survey-verify', surveyVerifyController.verifySurvey);
 
 // Get all questions (requires authentication)
 router.get('/', jwtAuthMiddleware, controller.questions.GetQuestions);
