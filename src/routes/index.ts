@@ -41,6 +41,6 @@ router.use("/night-out-freq", nightOutFreqRoutes);
 router.use("/metrics", metricsRouter);
 router.use("/brands", brandRouter);
 router.use("/ocr", ocrRouter);
-router.use("/ocr", healthyFoodRouter);
+router.use("/healthy-food-ratio", healthyFoodRouter);
 
 export default router;
