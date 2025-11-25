@@ -15,9 +15,6 @@ const SurveyScenarioParamsSchema = z.object({
     maxAge: NUMBER,
     location: z.string().optional(),
     gender: TEXT.optional(),
-    questionIds: z.array(z.string().uuid()).min(1, {
-        message: "At least one question ID is required",
-    }),
 });
 
 const QuestionIdsSchema = z.object({
@@ -41,22 +38,16 @@ class SurveyScenarioController {
                     error: parsed.error.format(),
                 });
 
-            const { minAge, maxAge, location, gender, questionIds } = parsed.data;
+            const { minAge, maxAge, location, gender } = parsed.data;
 
             if (minAge > maxAge)
                 return res.status(400).json({ success: false, message: "Min age cannot be greater than max age" });
-
-            // Validate questions exist
-            const questions = await this.QuestionsRepo.findBy({ id: In(questionIds) });
-            if (questions.length !== questionIds.length)
-                return res.status(404).json({ success: false, message: "One or more questions not found" });
 
             const scenario = this.SurveyScenarioRepo.create();
             scenario.minAge = minAge;
             scenario.maxAge = maxAge;
             scenario.location = location || "";
             scenario.gender = gender?.toLowerCase() === "all" ? "" : (gender?.toLowerCase() || "");
-            scenario.questions = questions;
             scenario.status = "active";
 
             await this.SurveyScenarioRepo.save(scenario);
@@ -79,6 +70,8 @@ class SurveyScenarioController {
             if (!parsed.success)
                 return res.status(400).json({ success: false, message: "Invalid input", error: parsed.error.format() });
 
+            const { questionIds } = parsed.data;
+
             const scenario = await this.SurveyScenarioRepo.findOne({
                 where: { id: scenarioId },
                 relations: ["questions"],
@@ -86,8 +79,9 @@ class SurveyScenarioController {
             if (!scenario)
                 return res.status(404).json({ success: false, message: "Scenario not found" });
 
-            const questions = await this.QuestionsRepo.findBy({ id: In(parsed.data.questionIds) });
-            if (questions.length !== parsed.data.questionIds.length)
+            // Validate questions exist
+            const questions = await this.QuestionsRepo.findBy({ id: In(questionIds) });
+            if (questions.length !== questionIds.length)
                 return res.status(404).json({ success: false, message: "One or more questions not found" });
 
             scenario.questions = questions;
