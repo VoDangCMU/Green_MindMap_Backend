@@ -22,6 +22,22 @@ const DEFAULTS = {
     alpha: 0.5
 };
 
+const SpendVariabilityRequestSchema = z.object({
+    daily_spend: z.array(z.number()),
+    base_likert: z.number(),
+    weight: z.number(),
+    direction: z.string(),
+    sigma_r: z.number(),
+    alpha: z.number(),
+    ocean_score: z.object({
+        O: z.number(),
+        C: z.number(),
+        E: z.number(),
+        A: z.number(),
+        N: z.number(),
+    })
+});
+
 const AnalyzeResponseSchema = z.object({
     metric: z.string(),
     vt: z.number(),
@@ -35,7 +51,14 @@ const AnalyzeResponseSchema = z.object({
         E: z.number(),
         A: z.number(),
         N: z.number(),
-    })
+    }),
+    mechanismFeedback: z.object({
+        awareness: z.string(),
+        motivation: z.string(),
+        capability: z.string(),
+        opportunity: z.string(),
+    }).optional(),
+    reason: z.string().optional()
 });
 
 class SpendVariabilityController {
@@ -282,6 +305,181 @@ class SpendVariabilityController {
             });
             return res.status(500).json({
                 error: "Failed to get spend variability",
+                details: e instanceof Error ? e.message : String(e),
+            });
+        }
+    };
+
+    public updateSpendVariability = async (req: Request, res: Response) => {
+        try {
+            const userId = req.user?.userId;
+            if (!userId) {
+                logger.warn("Unauthorized access to updateSpendVariability");
+                return res.status(401).json({ error: "Unauthorized" });
+            }
+
+            logger.info("updateSpendVariability called", {
+                userId,
+                body: req.body
+            });
+
+            // Validate request body
+            const parsed = SpendVariabilityRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                logger.warn("Invalid request parameters", {
+                    errors: parsed.error.errors
+                });
+                return res.status(400).json({
+                    error: "Invalid parameters",
+                    details: parsed.error.errors
+                });
+            }
+
+            const requestData = parsed.data;
+
+            // Call external API with the exact request format
+            logger.info("Calling spend variability API", {
+                userId,
+                payload: requestData
+            });
+
+            const apiResponse = await axios.post(API_URL, requestData, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (apiResponse.status !== 200) {
+                logger.error("API call failed", undefined, {
+                    userId,
+                    status: apiResponse.status,
+                    data: apiResponse.data
+                });
+                return res.status(apiResponse.status).json({
+                    error: "Spend variability calculation failed",
+                    details: apiResponse.data
+                });
+            }
+
+            const apiResult = AnalyzeResponseSchema.safeParse(apiResponse.data);
+
+            if (!apiResult.success) {
+                logger.error("Invalid API response", undefined, {
+                    userId,
+                    errors: apiResult.error.errors
+                });
+                return res.status(500).json({
+                    error: "Invalid response from API",
+                    details: apiResult.error.errors
+                });
+            }
+
+            const result = apiResult.data;
+
+            // Update BigFive with new ocean scores
+            const user = await UserRepository.findOne({
+                where: { id: userId },
+                relations: { bigFive: true }
+            });
+
+            if (!user) {
+                logger.warn("User not found", { userId });
+                return res.status(404).json({ error: "User not found" });
+            }
+
+            // Update or create BigFive
+            let bigFive = user.bigFive;
+            if (!bigFive) {
+                bigFive = new BigFive();
+                bigFive.user = user;
+            }
+
+            bigFive.openness = result.new_ocean_score.O;
+            bigFive.conscientiousness = result.new_ocean_score.C;
+            bigFive.extraversion = result.new_ocean_score.E;
+            bigFive.agreeableness = result.new_ocean_score.A;
+            bigFive.neuroticism = result.new_ocean_score.N;
+
+            await BigFiveRepository.save(bigFive);
+
+            logger.info("BigFive updated", {
+                userId,
+                newScores: result.new_ocean_score
+            });
+
+            // Update or create Metrics record
+            let metricRecord = await MetricsRepository.findOne({
+                where: {
+                    userId: userId,
+                    type: "spend_variability"
+                }
+            });
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayString = today.toISOString().split('T')[0];
+
+            if (metricRecord) {
+                metricRecord.vt = result.vt;
+                metricRecord.bt = result.bt;
+                metricRecord.r = result.r;
+                metricRecord.n = result.n;
+                metricRecord.contrib = result.contrib;
+                metricRecord.metadata = {
+                    daily_spend: requestData.daily_spend,
+                    base_likert: requestData.base_likert,
+                    direction: requestData.direction,
+                    last_day: todayString,
+                    mechanismFeedback: result.mechanismFeedback,
+                    reason: result.reason
+                };
+            } else {
+                metricRecord = MetricsRepository.create({
+                    userId: userId,
+                    type: "spend_variability",
+                    vt: result.vt,
+                    bt: result.bt,
+                    r: result.r,
+                    n: result.n,
+                    contrib: result.contrib,
+                    metadata: {
+                        daily_spend: requestData.daily_spend,
+                        base_likert: requestData.base_likert,
+                        direction: requestData.direction,
+                        last_day: todayString,
+                        mechanismFeedback: result.mechanismFeedback,
+                        reason: result.reason
+                    }
+                });
+            }
+
+            await MetricsRepository.save(metricRecord);
+
+            logger.info("Metrics updated", {
+                userId,
+                type: "spend_variability"
+            });
+
+            // Return the exact format as received from API
+            return res.status(200).json(result);
+
+        } catch (e) {
+            if (axios.isAxiosError(e)) {
+                logger.error("API call failed", e, {
+                    userId: req.user?.userId,
+                    response: e.response?.data
+                });
+                return res.status(e.response?.status || 500).json({
+                    error: "Failed to calculate spend variability",
+                    details: e.response?.data || e.message
+                });
+            }
+
+            logger.error("Failed to update spend variability", e as Error, {
+                userId: req.user?.userId
+            });
+            return res.status(500).json({
+                error: "Failed to update spend variability",
                 details: e instanceof Error ? e.message : String(e),
             });
         }

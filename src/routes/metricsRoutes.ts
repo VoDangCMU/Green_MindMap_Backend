@@ -1,23 +1,6 @@
 import {Router} from "express";
 import {jwtAuthMiddleware} from "../middlewares/jwtMiddleware";
 import controller from "../controller";
-import multer from "multer";
-
-// Cấu hình multer để xử lý upload ảnh
-const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB
-    },
-    fileFilter: (req, file, cb) => {
-        // Chỉ chấp nhận file ảnh
-        if (file.mimetype.startsWith('image/')) {
-            cb(null, true);
-        } else {
-            cb(new Error('Only image files are allowed'));
-        }
-    }
-});
 
 const router = Router();
 
@@ -25,11 +8,28 @@ const router = Router();
 router.get("/avg-daily-spend", jwtAuthMiddleware, controller.avgDailySpendMetric.getAvgDailySpend);
 router.post("/avg-daily-spend", jwtAuthMiddleware, controller.avgDailySpendMetric.updateAvgSpend);
 
-// Healthy Food Ratio endpoints
-router.get("/healthy-food-ratio", jwtAuthMiddleware, controller.healthyFoodRatioMetric.getHealthyFoodRatio);
-router.post("/healthy-food-ratio", jwtAuthMiddleware, upload.single('file'), controller.healthyFoodRatioMetric.createOrUpdateHealthyFoodRatio);
-
 // Spend Variability endpoints
 router.get("/spend-variability", jwtAuthMiddleware, controller.spendVariabilityMetric.getSpendVariability);
+router.post("/spend-variability", jwtAuthMiddleware, controller.spendVariabilityMetric.updateSpendVariability);
+
+// Brand Novelty endpoints
+router.get("/brand-novelty", jwtAuthMiddleware, controller.brandNoveltyMetric.getBrandNovelty);
+router.post("/brand-novelty", jwtAuthMiddleware, controller.brandNoveltyMetric.updateBrandNovelty);
+
+// List Adherence endpoints
+router.get("/list-adherence", jwtAuthMiddleware, controller.listAdherenceMetric.getListAdherence);
+router.post("/list-adherence", jwtAuthMiddleware, controller.listAdherenceMetric.updateListAdherence);
+
+// Daily Distance Km endpoints
+router.get("/daily-distance-km", jwtAuthMiddleware, controller.dailyDistanceKmMetric.getDailyDistanceKm);
+router.post("/daily-distance-km", jwtAuthMiddleware, controller.dailyDistanceKmMetric.updateDailyDistanceKm);
+
+// Novel Location Ratio endpoints
+router.get("/novel-location-ratio", jwtAuthMiddleware, controller.novelLocationRatioMetric.getNovelLocationRatio);
+router.post("/novel-location-ratio", jwtAuthMiddleware, controller.novelLocationRatioMetric.updateNovelLocationRatio);
+
+// Public Transit Ratio endpoints
+router.get("/public-transit-ratio", jwtAuthMiddleware, controller.publicTransitRatioMetric.getPublicTransitRatio);
+router.post("/public-transit-ratio", jwtAuthMiddleware, controller.publicTransitRatioMetric.updatePublicTransitRatio);
 
 export default router;
