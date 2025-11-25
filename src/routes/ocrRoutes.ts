@@ -24,5 +24,7 @@ const upload = multer({
 // POST /api/ocr - Process OCR from image
 router.post("/", jwtAuthMiddleware, upload.single('file'), ocrController.processOCR);
 
-export default router;
+// GET /api/invoices - Get all invoices for authenticated user
+router.get("/invoices", jwtAuthMiddleware, ocrController.getInvoices);
 
+export default router;
