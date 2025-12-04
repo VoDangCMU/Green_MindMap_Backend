@@ -220,11 +220,36 @@ export class QuestionsController {
                         }
                     }
 
+                    // Extract trait/ocean (O, C, E, A, N) from multiple sources
+                    let trait: string | undefined = undefined;
+
+                    // Priority 1: Extract from template.intent (e.g., "O_F_001" -> "O")
+                    if (template.intent) {
+                        const match = template.intent.match(/^([OCEAN])/i);
+                        if (match) {
+                            trait = match[1].toUpperCase();
+                        }
+                    }
+
+                    // Priority 2: Extract from template.trait if exists
+                    if (!trait && template.trait) {
+                        trait = template.trait.toUpperCase();
+                    }
+
+                    // Priority 3: Extract from model.ocean if exists and model is provided
+                    if (!trait && model?.ocean) {
+                        const match = model.ocean.match(/^([OCEAN])/i);
+                        if (match) {
+                            trait = match[1].toUpperCase();
+                        }
+                    }
+
                     const question = new Questions();
                     question.question = questionData.question;
                     question.template = template;
                     question.templateId = questionData.templateId;
                     question.ownerId = userId; // Save user ID of creator
+                    question.trait = trait; // Save extracted ocean/trait
                     if (model) {
                         question.model = model;
                     }
