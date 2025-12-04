@@ -26,7 +26,12 @@ const QuestionIdSchema = z.object({
 
 // Batch question creation schema
 const BatchQuestionSchema = z.object({
-    questions: z.array(QuestionSchema).min(1, "At least one question is required")
+    questions: z.array(z.object({
+        question: z.string().min(1, "Question text is required"),
+        templateId: z.string().uuid("Invalid template ID"),
+        threadHallId: z.string().uuid("Invalid thread hall ID").optional(),
+        modelId: z.string().uuid("Invalid model ID").optional()
+    })).min(1, "At least one question is required")
 });
 
 // New schema for createQuestions API
@@ -165,6 +170,12 @@ export class QuestionsController {
         const data = validateBatchQuestionParams(req, res);
         if (!data) return;
 
+        // Get user ID from JWT token
+        const userId = req.user?.userId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized - User ID not found" });
+        }
+
         try {
             const createdQuestions: Questions[] = [];
             const errors: string[] = [];
@@ -183,6 +194,19 @@ export class QuestionsController {
                         continue;
                     }
 
+                    // Check if model exists (if provided)
+                    let model = null;
+                    if (questionData.modelId) {
+                        model = await ModelsRepository.findOne({
+                            where: { id: questionData.modelId }
+                        });
+
+                        if (!model) {
+                            errors.push(`Question ${i + 1}: Model not found`);
+                            continue;
+                        }
+                    }
+
                     // Check if thread hall exists (if provided)
                     let threadHall = null;
                     if (questionData.threadHallId) {
@@ -199,6 +223,11 @@ export class QuestionsController {
                     const question = new Questions();
                     question.question = questionData.question;
                     question.template = template;
+                    question.templateId = questionData.templateId;
+                    question.ownerId = userId; // Save user ID of creator
+                    if (model) {
+                        question.model = model;
+                    }
                     if (threadHall) {
                         question.threadHall = threadHall;
                     }
@@ -221,7 +250,8 @@ export class QuestionsController {
             const response: any = {
                 message: `${savedQuestions.length} questions created successfully`,
                 data: savedQuestions,
-                count: savedQuestions.length
+                count: savedQuestions.length,
+                createdBy: userId
             };
 
             if (errors.length > 0) {
