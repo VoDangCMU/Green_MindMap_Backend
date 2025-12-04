@@ -23,7 +23,7 @@ export const staffOrAdminMiddleware = (req: Request, res: Response, next: NextFu
     }
 
     // Check if user has staff or admin role
-    if (req.user.role !== 'admin' && req.user.role !== 'staff') {
+    if (req.user.role !== 'admin' && req.user.role !== 'expert') {
         return res.status(403).json({
             message: "Access denied. Staff or admin privileges required."
         });

@@ -13,6 +13,7 @@ import {UserAnswers} from "./user_answers";
 import {QuestionOptions} from "./question_options";
 import {SurveyScenario} from "../entity/survey_scenario";
 import {Models} from "./models";
+import {User} from "./user";
 
 export const QUESTIONS_TABLE_NAME = 'questions';
 
@@ -45,6 +46,12 @@ export class Questions {
 
     @ManyToOne(() => Models, {nullable: true})
     model?: Models;
+
+    @ManyToOne(() => User, {nullable: true})
+    owner?: User;
+
+    @Column({type: 'text', nullable: true})
+    ownerId?: string;
 
     @CreateDateColumn({type: 'timestamp'})
     createdAt!: Date;

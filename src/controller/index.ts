@@ -13,6 +13,7 @@ import surveyScenarios from "./surveyScenarioController";
 import dailyPending from "./dailySpendingController";
 import {modelController as model} from "./modelController";
 import preAppSurvey from "./preAppSurveyController";
+import questionSet from "./questionSetController";
 import avgDailySpendMetric from "./metrics/averageDailySpendController";
 import spendVariabilityMetric from "./metrics/spendVariabilityController";
 import brandNoveltyMetric from "./metrics/brandNoveltyController";
@@ -39,6 +40,7 @@ export default {
     model,
     preAppSurvey,
     questions,
+    questionSet,
     surveyScenarios,
     template,
     threadHall,
