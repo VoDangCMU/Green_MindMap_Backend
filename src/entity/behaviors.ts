@@ -1,5 +1,4 @@
-import {Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn} from "typeorm";
-import {ThreadHall} from "./thread_halls";
+import {Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn} from "typeorm";
 
 export const BEHAVIORS_TABLE_NAME = 'behaviors';
 
@@ -7,9 +6,6 @@ export const BEHAVIORS_TABLE_NAME = 'behaviors';
 export class Behavior {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
-
-    @ManyToOne(() => ThreadHall, { onDelete: 'CASCADE' })
-    threadHall!: ThreadHall;
 
     @Column({type: 'text'})
     name!: string;

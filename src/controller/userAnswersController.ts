@@ -257,7 +257,7 @@ class UserAnswersController {
             // Lấy tất cả câu trả lời của user với đầy đủ relations
             const userAnswers = await UserAnswersRepository.find({
                 where: { userId },
-                relations: ['question', 'question.template', 'question.template.answer', 'question.threadHall', 'question.threadHall.traits'],
+                relations: ['question', 'question.template', 'question.template.answer'],
                 order: { timestamp: 'DESC' }
             });
 
@@ -266,8 +266,6 @@ class UserAnswersController {
                 const question = userAnswer.question;
                 const template = question?.template;
                 const templateAnswer = template?.answer;
-                const threadHall = question?.threadHall;
-                const trait = threadHall?.traits;
 
                 // Tính score và key dựa trên answer và template type
                 let score = 0;
@@ -307,7 +305,7 @@ class UserAnswersController {
                 }
 
                 return {
-                    trait: trait?.label || trait?.name || 'Unknown',
+                    trait: template?.trait || 'Unknown',
                     template_id: template?.id || 'Unknown',
                     intent: template?.intent || 'Unknown',
                     question: question?.question || '',

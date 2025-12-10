@@ -4,20 +4,17 @@ import AppDataSource from '../infrastructure/database';
 import {Questions} from '../entity/questions';
 import {QuestionOptions} from '../entity/question_options';
 import {Template} from '../entity/templates';
-import {ThreadHall} from '../entity/thread_halls';
 import {Models} from '../entity/models';
 import {logger} from '../infrastructure';
 
 const QuestionSchema = z.object({
-    question: z.string().min(1, "Question text is required"),
-    templateId: z.string().uuid("Invalid template ID"),
-    threadHallId: z.string().uuid("Invalid thread hall ID").optional()
+    filled_prompt: z.string().min(1, "Question text (filled_prompt) is required"),
+    templateId: z.string().uuid("Invalid template ID")
 });
 
 const QuestionUpdateSchema = z.object({
     question: z.string().min(1, "Question text is required").optional(),
-    templateId: z.string().uuid("Invalid template ID").optional(),
-    threadHallId: z.string().uuid("Invalid thread hall ID").optional()
+    templateId: z.string().uuid("Invalid template ID").optional()
 });
 
 const QuestionIdSchema = z.object({
@@ -52,7 +49,6 @@ const CreateQuestionsRequestSchema = z.object({
 const QuestionsRepository = AppDataSource.getRepository(Questions);
 const QuestionOptionsRepository = AppDataSource.getRepository(QuestionOptions);
 const TemplateRepository = AppDataSource.getRepository(Template);
-const ThreadHallRepository = AppDataSource.getRepository(ThreadHall);
 const ModelsRepository = AppDataSource.getRepository(Models);
 
 function validateQuestionParams(req: Request, res: Response) {
@@ -111,24 +107,9 @@ export class QuestionsController {
                 return res.status(404).json({ message: "Template not found" });
             }
 
-            // Check if thread hall exists (if provided)
-            let threadHall = null;
-            if (data.threadHallId) {
-                threadHall = await ThreadHallRepository.findOne({
-                    where: { id: data.threadHallId }
-                });
-
-                if (!threadHall) {
-                    return res.status(404).json({ message: "Thread hall not found" });
-                }
-            }
-
             const newQuestion = new Questions();
-            newQuestion.question = data.question;
+            newQuestion.question = data.filled_prompt; // Lưu filled_prompt vào question
             newQuestion.template = template;
-            if (threadHall) {
-                newQuestion.threadHall = threadHall;
-            }
 
             const savedQuestion = await QuestionsRepository.save(newQuestion);
 
@@ -332,7 +313,7 @@ export class QuestionsController {
     public async GetQuestions(req: Request, res: Response) {
         try {
             const questions = await QuestionsRepository.find({
-                relations: ['template', 'threadHall', 'userAnswers'],
+                relations: ['template', 'userAnswers'],
                 order: { createdAt: 'DESC' }
             });
 
@@ -363,7 +344,7 @@ export class QuestionsController {
         try {
             const question = await QuestionsRepository.findOne({
                 where: { id: questionId },
-                relations: ['template', 'threadHall', 'userAnswers']
+                relations: ['template', 'userAnswers']
             });
 
             if (!question) {
@@ -410,8 +391,8 @@ export class QuestionsController {
                 return res.status(404).json({ message: "Question not found" });
             }
 
+            // Update question text from filled_prompt
             if (data.question !== undefined) {
-                question.question = data.question;
             }
 
             // Update template if provided
@@ -425,19 +406,6 @@ export class QuestionsController {
                 }
 
                 question.template = template;
-            }
-
-            // Update thread hall if provided
-            if (data.threadHallId !== undefined) {
-                const threadHall = await ThreadHallRepository.findOne({
-                    where: { id: data.threadHallId }
-                });
-
-                if (!threadHall) {
-                    return res.status(404).json({ message: "Thread hall not found" });
-                }
-
-                question.threadHall = threadHall;
             }
 
             const updatedQuestion = await QuestionsRepository.save(question);
@@ -497,7 +465,7 @@ export class QuestionsController {
         try {
             const questions = await QuestionsRepository.find({
                 where: { template: { id: templateId } },
-                relations: ['template', 'threadHall'],
+                relations: ['template'],
                 order: { createdAt: 'DESC' }
             });
 
@@ -512,32 +480,6 @@ export class QuestionsController {
         }
     }
 
-    // Get questions by thread hall ID
-    public async GetQuestionsByThreadHall(req: Request, res: Response) {
-        const { threadHallId } = req.params;
-
-        if (!threadHallId) {
-            return res.status(400).json({ message: "Thread hall ID is required" });
-        }
-
-        try {
-            const questions = await QuestionsRepository.find({
-                where: { threadHall: { id: threadHallId } },
-                relations: ['template', 'threadHall'],
-                order: { createdAt: 'DESC' }
-            });
-
-            return res.status(200).json({
-                message: `Questions for thread hall retrieved successfully`,
-                data: questions,
-                count: questions.length
-            });
-        } catch (e) {
-            logger.error('Error fetching questions by thread hall', e as Error);
-            return res.status(500).json({ message: "Internal server error" });
-        }
-    }
-
     // Get questions by owner
     public async GetQuestionsByOwner(req: Request, res: Response) {
         const ownerId = req.params.ownerId || (req as any).userId; // Allow getting by ownerId param or current user
@@ -545,7 +487,7 @@ export class QuestionsController {
         try {
             const questions = await QuestionsRepository.find({
                 where: { ownerId: ownerId },
-                relations: ['template', 'threadHall', 'owner', 'questionOptions', 'model'],
+                relations: ['template', 'owner', 'questionOptions', 'model'],
                 order: { createdAt: 'DESC' }
             });
 

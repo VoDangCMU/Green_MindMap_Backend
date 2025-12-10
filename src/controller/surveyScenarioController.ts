@@ -366,8 +366,7 @@ class SurveyScenarioController {
                             items: {
                                 template: true,
                                 model: true,
-                                questionOptions: true,
-                                threadHall: true
+                                questionOptions: true
                             }
                         }
                     }

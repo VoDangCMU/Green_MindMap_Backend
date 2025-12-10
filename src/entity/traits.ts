@@ -1,5 +1,4 @@
-import {Column, Entity, OneToMany, PrimaryGeneratedColumn} from "typeorm";
-import {ThreadHall} from "./thread_halls";
+import {Column, Entity, PrimaryGeneratedColumn} from "typeorm";
 
 
 export const TRAITS_TABLE_NAME = 'traits'
@@ -17,7 +16,4 @@ export class Traits {
 
     @Column({type: 'text'})
     label?: string;
-
-    @OneToMany(() => ThreadHall, threadHall => threadHall.traits)
-    threadHalls!: ThreadHall[];
 }

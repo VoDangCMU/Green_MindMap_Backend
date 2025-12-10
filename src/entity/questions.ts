@@ -8,7 +8,6 @@ import {
     UpdateDateColumn
 } from "typeorm";
 import {Template} from "./templates";
-import {ThreadHall} from "./thread_halls";
 import {UserAnswers} from "./user_answers";
 import {QuestionOptions} from "./question_options";
 import {Models} from "./models";
@@ -57,8 +56,6 @@ export class Questions {
     @UpdateDateColumn({type: 'timestamp'})
     updatedAt!: Date;
 
-    @ManyToOne(() => ThreadHall, {onDelete: 'CASCADE'})
-    threadHall!: ThreadHall;
 
     @OneToMany(() => UserAnswers, userAnswers => userAnswers.question)
     userAnswers?: UserAnswers[];

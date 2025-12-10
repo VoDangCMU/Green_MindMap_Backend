@@ -7,7 +7,6 @@ import location from "./locationController";
 import bigFive from "./bigFiveController";
 import behavior from "./behaviorController";
 import behaviorFeedback from "./behaviorFeedbackController";
-import threadHall from "./threadHallController";
 import userAnswers from "./userAnswersController";
 import surveyScenarios from "./surveyScenarioController";
 import dailyPending from "./dailySpendingController";
@@ -43,7 +42,6 @@ export default {
     questionSet,
     surveyScenarios,
     template,
-    threadHall,
     token,
     trait,
     user,
