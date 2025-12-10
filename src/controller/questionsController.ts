@@ -377,22 +377,19 @@ export class QuestionsController {
 
         const questionId = parsed.data.id;
 
-        const userId = req.user?.userId;
-
-        if (!userId) {
-            return res.status(401).json({message: "Unauthorized - User ID not found"});
-        }
         try {
+            // First, try to find the question
             const question = await QuestionsRepository.findOne({
-                where: {id: questionId, ownerId: userId}
+                where: { id: questionId }
             });
 
             if (!question) {
                 return res.status(404).json({ message: "Question not found" });
             }
 
-            // Update question text from filled_prompt
+            // Update question text if provided
             if (data.question !== undefined) {
+                question.question = data.question;
             }
 
             // Update template if provided
@@ -434,13 +431,15 @@ export class QuestionsController {
         const questionId = parsed.data.id;
 
         try {
+            // First, try to find the question
             const question = await QuestionsRepository.findOne({
-                where: {id: questionId, ownerId: req.user?.userId}
+                where: { id: questionId }
             });
 
             if (!question) {
                 return res.status(404).json({ message: "Question not found" });
             }
+
 
             await QuestionsRepository.delete(questionId);
 
@@ -454,7 +453,6 @@ export class QuestionsController {
         }
     }
 
-    // Get questions by template ID
     public async GetQuestionsByTemplate(req: Request, res: Response) {
         const { templateId } = req.params;
 
