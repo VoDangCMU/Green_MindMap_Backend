@@ -29,9 +29,6 @@ router.get('/my-questions', jwtAuthMiddleware, controller.questions.GetQuestions
 // Get questions by template ID (requires authentication)
 router.get('/template/:templateId', jwtAuthMiddleware, controller.questions.GetQuestionsByTemplate);
 
-// Get questions by thread hall ID (requires authentication)
-router.get('/threadhall/:threadHallId', jwtAuthMiddleware, controller.questions.GetQuestionsByThreadHall);
-
 // Get questions by owner ID (requires authentication)
 router.get('/owner/:ownerId', jwtAuthMiddleware, controller.questions.GetQuestionsByOwner);
 
