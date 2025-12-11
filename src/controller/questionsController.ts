@@ -523,9 +523,13 @@ export class QuestionsController {
         const ownerId = req.params.ownerId || (req as any).userId; // Allow getting by ownerId param or current user
 
         try {
-            const latestModel = await ModelsRepository.findOne({
-                order: { createdAt: 'DESC' }
+            // Sử dụng find với take: 1 thay vì findOne vì findOne yêu cầu where conditions
+            const latestModels = await ModelsRepository.find({
+                order: { createdAt: 'DESC' },
+                take: 1
             });
+
+            const latestModel = latestModels.length > 0 ? latestModels[0] : null;
 
             if (!latestModel) {
                 return res.status(404).json({
