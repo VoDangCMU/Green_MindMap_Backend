@@ -123,7 +123,7 @@ class SurveyVerifyController {
 
     /**
      * Get all feedbacks
-     * GET /api/questions/feedbacks
+     * GET /api/models/feedbacks
      */
     public getFeedbacks: RequestHandler = async (req: Request, res: Response) => {
         const logger = getLogger();
@@ -139,21 +139,56 @@ class SurveyVerifyController {
 
             logger.info("Feedbacks retrieved successfully", { count: feedbacks.length });
 
+            // Cache behavior feedbacks theo modelId để tránh query nhiều lần
+            const behaviorFeedbackCache = new Map<string, any[]>();
+
             // Format response với engagement được tính từ deviation
             const formattedFeedbacks = await Promise.all(feedbacks.map(async (feedback) => {
                 // Tính engagement = 1 - |deviation|
                 const engagement = 1 - Math.abs(Number(feedback.deviation));
 
-                // Lấy tất cả behavior feedbacks của model này
-                const behaviorFeedbacks = await behaviorFeedbackRepository.find({
-                    where: { modelId: feedback.modelId },
-                    order: { createdAt: 'DESC' }
-                });
+                // Lấy behavior feedbacks từ cache hoặc query mới
+                let mechanismFeedbacksByMetric: any[] = [];
 
-                // Lấy tất cả mechanismFeedback từ các behavior feedbacks
-                const allMechanismFeedbacks = behaviorFeedbacks
-                    .filter(bf => bf.mechanismFeedback)
-                    .map(bf => bf.mechanismFeedback);
+                if (feedback.modelId) {
+                    if (!behaviorFeedbackCache.has(feedback.modelId)) {
+                        // Lấy tất cả behavior feedbacks của model này
+                        const behaviorFeedbacks = await behaviorFeedbackRepository.find({
+                            where: { modelId: feedback.modelId },
+                            order: { createdAt: 'DESC' }
+                        });
+
+                        // Nhóm behavior feedbacks theo metricType
+                        const groupedByMetric = new Map<string, any[]>();
+
+                        behaviorFeedbacks.forEach(bf => {
+                            if (!bf.mechanismFeedback) return;
+
+                            if (!groupedByMetric.has(bf.metric)) {
+                                groupedByMetric.set(bf.metric, []);
+                            }
+
+                            groupedByMetric.get(bf.metric)!.push({
+                                id: bf.id,
+                                awareness: bf.mechanismFeedback.awareness,
+                                motivation: bf.mechanismFeedback.motivation,
+                                capability: bf.mechanismFeedback.capability,
+                                opportunity: bf.mechanismFeedback.opportunity,
+                                createdAt: bf.createdAt
+                            });
+                        });
+
+                        // Chuyển đổi thành mảng [metricType, mechanismFeedbacks[]]
+                        const result = Array.from(groupedByMetric.entries()).map(([metricType, mechanismFeedbacks]) => ({
+                            metricType,
+                            mechanismFeedbacks
+                        }));
+
+                        behaviorFeedbackCache.set(feedback.modelId, result);
+                    }
+
+                    mechanismFeedbacksByMetric = behaviorFeedbackCache.get(feedback.modelId) || [];
+                }
 
                 return {
                     id: feedback.id,
@@ -167,7 +202,7 @@ class SurveyVerifyController {
                     match: feedback.match,
                     level: feedback.level,
                     feedback: feedback.feedback,
-                    mechanismFeedbacks: allMechanismFeedbacks,
+                    mechanismFeedbacks: mechanismFeedbacksByMetric,
                     createdAt: feedback.createdAt,
                     updatedAt: feedback.updatedAt,
                     model: feedback.model ? {

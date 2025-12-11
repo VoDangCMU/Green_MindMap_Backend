@@ -9,6 +9,7 @@ import { AvgDailySpend } from '../../entity/daily_spend';
 import { logger } from '../../infrastructure';
 import axios from 'axios';
 import { verifySurveyAndSaveFeedback } from '../../utils/verifySurveyHelper';
+import { findMatchingModel } from '../../utils/modelMatcher';
 
 const BigFiveRepository = AppDataSource.getRepository(BigFive);
 const MetricsRepository = AppDataSource.getRepository(Metrics);
@@ -465,8 +466,13 @@ class SpendVariabilityController {
 
             // Save feedback to behavior_feedbacks table
             if (result.mechanismFeedback) {
+                // Tự động tìm model phù hợp với user
+                const matchingModel = await findMatchingModel(userId);
+                const modelId = matchingModel?.id;
+
                 const behaviorFeedback = BehaviorFeedbackRepository.create({
                     userId: userId,
+                    modelId: modelId || undefined,
                     metric: "spend_variability",
                     vt: result.vt,
                     bt: result.bt,
@@ -479,7 +485,7 @@ class SpendVariabilityController {
                 });
 
                 await BehaviorFeedbackRepository.save(behaviorFeedback);
-                logger.info("Behavior feedback saved", { userId, feedbackId: behaviorFeedback.id });
+                logger.info("Behavior feedback saved", { userId, modelId, feedbackId: behaviorFeedback.id });
             }
 
             // Gọi verify-survey API với OCEAN score mới và lưu feedback
