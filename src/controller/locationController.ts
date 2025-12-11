@@ -194,38 +194,14 @@ class LocationController {
         }
     }
 
-    // Lấy tất cả vị trí của user hiện tại
+    // Lấy vị trí mới nhất của user hiện tại
     public async GetLocations (req: Request, res: Response) {
         if (!req.user || !req.user.userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
         try {
-            const locations = await LocationRepository.find({
-                where: { userId: req.user.userId },
-                order: {
-                    createdAt: "DESC"
-                }
-            });
-
-            return res.status(200).json({
-                message: "Locations retrieved successfully",
-                data: locations,
-                count: locations.length
-            });
-        } catch (e) {
-            logger.error('Error fetching locations', e as Error);
-            return res.status(500).json({ message: "Internal server error" });
-        }
-    }
-
-    // Lấy vị trí mới nhất của user
-    public async GetLatestLocation (req: Request, res: Response) {
-        if (!req.user || !req.user.userId) {
-            return res.status(401).json({ message: "Unauthorized" });
-        }
-
-        try {
+            // Chỉ lấy location mới nhất
             const location = await LocationRepository.findOne({
                 where: { userId: req.user.userId },
                 order: {
@@ -234,7 +210,10 @@ class LocationController {
             });
 
             if (!location) {
-                return res.status(404).json({ message: "No location found for this user" });
+                return res.status(404).json({
+                    message: "No location found for this user",
+                    data: null
+                });
             }
 
             return res.status(200).json({
@@ -242,9 +221,14 @@ class LocationController {
                 data: location
             });
         } catch (e) {
-            logger.error('Error fetching latest location', e as Error);
+            logger.error('Error fetching locations', e as Error);
             return res.status(500).json({ message: "Internal server error" });
         }
+    }
+
+    // Lấy vị trí mới nhất của user (alias cho GetLocations)
+    public async GetLatestLocation (req: Request, res: Response) {
+        return this.GetLocations(req, res);
     }
 }
 

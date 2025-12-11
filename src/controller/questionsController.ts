@@ -9,7 +9,9 @@ import {logger} from '../infrastructure';
 
 const QuestionSchema = z.object({
     filled_prompt: z.string().min(1, "Question text (filled_prompt) is required"),
-    templateId: z.string().uuid("Invalid template ID")
+    templateId: z.string().uuid("Invalid template ID"),
+    trait: z.string().max(1).optional(), // O, C, E, A, N
+    modelId: z.string().uuid().optional(),
 });
 
 const QuestionUpdateSchema = z.object({
@@ -107,9 +109,38 @@ export class QuestionsController {
                 return res.status(404).json({ message: "Template not found" });
             }
 
+            // Xử lý trait: lấy từ request hoặc từ model.ocean
+            let trait = data.trait;
+            let model = null;
+
+            if (data.modelId) {
+                model = await ModelsRepository.findOne({
+                    where: { id: data.modelId }
+                });
+                if (!model) {
+                    return res.status(404).json({ message: `Model with ID ${data.modelId} not found` });
+                }
+                // Nếu không có trait trong request, lấy từ model.ocean (ký tự đầu tiên)
+                if (!trait && model.ocean) {
+                    const match = model.ocean.match(/^([OCEAN])/i);
+                    if (match) {
+                        trait = match[1].toUpperCase();
+                    }
+                }
+            }
+
+            // Nếu vẫn không có trait, thử lấy từ template
+            if (!trait && template.trait) {
+                trait = template.trait.toUpperCase();
+            }
+
             const newQuestion = new Questions();
             newQuestion.question = data.filled_prompt; // Lưu filled_prompt vào question
             newQuestion.template = template;
+            newQuestion.trait = trait;
+            if (model) {
+                newQuestion.model = model;
+            }
 
             const savedQuestion = await QuestionsRepository.save(newQuestion);
 
@@ -485,8 +516,24 @@ export class QuestionsController {
         const ownerId = req.params.ownerId || (req as any).userId; // Allow getting by ownerId param or current user
 
         try {
+            const latestModel = await ModelsRepository.findOne({
+                order: { createdAt: 'DESC' }
+            });
+
+            if (!latestModel) {
+                return res.status(404).json({
+                    message: "No model found",
+                    data: [],
+                    count: 0
+                });
+            }
+
+            // Lấy các câu hỏi của owner với model_id mới nhất
             const questions = await QuestionsRepository.find({
-                where: { ownerId: ownerId },
+                where: {
+                    ownerId: ownerId,
+                    model: { id: latestModel.id }
+                },
                 relations: ['template', 'owner', 'questionOptions', 'model'],
                 order: { createdAt: 'DESC' }
             });
@@ -494,7 +541,9 @@ export class QuestionsController {
             return res.status(200).json({
                 message: `Questions for owner retrieved successfully`,
                 data: questions,
-                count: questions.length
+                count: questions.length,
+                modelId: latestModel.id,
+                modelCreatedAt: latestModel.createdAt
             });
         } catch (e) {
             logger.error('Error fetching questions by owner', e as Error);
