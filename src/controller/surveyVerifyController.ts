@@ -1,6 +1,7 @@
 import { Request, Response, RequestHandler } from "express";
 import AppDataSource from "../infrastructure/database";
 import { Feedback } from "../entity/feedback";
+import { BehaviorFeedback } from "../entity/behavior_feedback";
 import { getLogger } from "../infrastructure/logger";
 import axios from "axios";
 
@@ -129,6 +130,8 @@ class SurveyVerifyController {
 
         try {
             const feedbackRepository = AppDataSource.getRepository(Feedback);
+            const behaviorFeedbackRepository = AppDataSource.getRepository(BehaviorFeedback);
+
             const feedbacks = await feedbackRepository.find({
                 relations: ['model'],
                 order: { createdAt: 'DESC' }
@@ -137,9 +140,20 @@ class SurveyVerifyController {
             logger.info("Feedbacks retrieved successfully", { count: feedbacks.length });
 
             // Format response với engagement được tính từ deviation
-            const formattedFeedbacks = feedbacks.map(feedback => {
+            const formattedFeedbacks = await Promise.all(feedbacks.map(async (feedback) => {
                 // Tính engagement = 1 - |deviation|
                 const engagement = 1 - Math.abs(Number(feedback.deviation));
+
+                // Lấy tất cả behavior feedbacks của model này
+                const behaviorFeedbacks = await behaviorFeedbackRepository.find({
+                    where: { modelId: feedback.modelId },
+                    order: { createdAt: 'DESC' }
+                });
+
+                // Lấy tất cả mechanismFeedback từ các behavior feedbacks
+                const allMechanismFeedbacks = behaviorFeedbacks
+                    .filter(bf => bf.mechanismFeedback)
+                    .map(bf => bf.mechanismFeedback);
 
                 return {
                     id: feedback.id,
@@ -153,6 +167,7 @@ class SurveyVerifyController {
                     match: feedback.match,
                     level: feedback.level,
                     feedback: feedback.feedback,
+                    mechanismFeedbacks: allMechanismFeedbacks,
                     createdAt: feedback.createdAt,
                     updatedAt: feedback.updatedAt,
                     model: feedback.model ? {
@@ -165,7 +180,7 @@ class SurveyVerifyController {
                         keywords: feedback.model.keywords
                     } : null
                 };
-            });
+            }));
 
             res.status(200).json(formattedFeedbacks);
         } catch (error) {
