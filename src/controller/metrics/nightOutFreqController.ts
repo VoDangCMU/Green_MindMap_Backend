@@ -9,6 +9,7 @@ import { BehaviorFeedback } from "../../entity/behavior_feedback";
 import NUMBER from "../../config/schemas/Number";
 import TEXT from "../../config/schemas/Text";
 import { logger } from "../../infrastructure";
+import { verifySurveyAndSaveFeedback } from "../../utils/verifySurveyHelper";
 
 const NightOutFreqRequestSchema = z.object({
     night_out_count: NUMBER,
@@ -262,8 +263,18 @@ class NightOutFreqController {
                 });
             }
 
+            // Gọi verify-survey API với OCEAN score mới và lưu feedback
+            const verifySurveyResult = await verifySurveyAndSaveFeedback(
+                userId,
+                aiData.new_ocean_score,
+                "night_out_freq"
+            );
+
             // Return the exact format as received from AI API
-            return res.status(200).json(aiData);
+            return res.status(200).json({
+                ...aiData,
+                verifySurvey: verifySurveyResult || null
+            });
 
         } catch (e) {
             if (axios.isAxiosError(e)) {

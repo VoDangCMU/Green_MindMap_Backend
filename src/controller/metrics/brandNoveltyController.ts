@@ -7,6 +7,7 @@ import { User } from '../../entity/user';
 import { BehaviorFeedback } from '../../entity/behavior_feedback';
 import { logger } from '../../infrastructure';
 import axios from 'axios';
+import { verifySurveyAndSaveFeedback } from '../../utils/verifySurveyHelper';
 
 const BigFiveRepository = AppDataSource.getRepository(BigFive);
 const MetricsRepository = AppDataSource.getRepository(Metrics);
@@ -297,8 +298,17 @@ class BrandNoveltyController {
             }
 
             // Return the exact format as received from API
-            return res.status(200).json(result);
+            // Gọi verify-survey API với OCEAN score mới và lưu feedback
+            const verifySurveyResult = await verifySurveyAndSaveFeedback(
+                userId,
+                result.new_ocean_score,
+                "brand_novelty"
+            );
 
+            return res.status(200).json({
+                ...result,
+                verifySurvey: verifySurveyResult || null
+            });
         } catch (e) {
             if (axios.isAxiosError(e)) {
                 logger.error("API call failed", e, {
@@ -323,4 +333,3 @@ class BrandNoveltyController {
 }
 
 export default new BrandNoveltyController();
-

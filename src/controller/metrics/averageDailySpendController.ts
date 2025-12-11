@@ -8,6 +8,7 @@ import { BehaviorFeedback } from "../../entity/behavior_feedback";
 import { logger } from "../../infrastructure";
 import axios from "axios";
 import { z } from "zod";
+import { verifySurveyAndSaveFeedback } from "../../utils/verifySurveyHelper";
 
 const MetricsRepo = AppDataSource.getRepository(Metrics);
 const DailySpendRepo = AppDataSource.getRepository(AvgDailySpend);
@@ -385,6 +386,13 @@ class AverageDailySpendController {
                 await BehaviorFeedbackRepo.save(behaviorFeedback);
                 logger.info("Behavior feedback saved", { userId, feedbackId: behaviorFeedback.id });
             }
+            // Gọi verify-survey API với OCEAN score mới và lưu feedback
+            const verifySurveyResult = await verifySurveyAndSaveFeedback(
+                userId,
+                apiResult.new_ocean_score,
+                "avg_daily_spend"
+            );
+
 
             // Return the proper format matching other metrics
             return res.status(200).json({
@@ -396,7 +404,8 @@ class AverageDailySpendController {
                 contrib: apiResult.contrib,
                 new_ocean_score: apiResult.new_ocean_score,
                 mechanismFeedback: apiResult.mechanismFeedback || null,
-                reason: apiResult.reason || null
+                reason: apiResult.reason || null,
+                verifySurvey: verifySurveyResult || null
             });
 
         } catch (e) {

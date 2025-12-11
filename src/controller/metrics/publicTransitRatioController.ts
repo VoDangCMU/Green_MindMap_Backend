@@ -7,6 +7,7 @@ import { User } from '../../entity/user';
 import { BehaviorFeedback } from '../../entity/behavior_feedback';
 import { logger } from '../../infrastructure';
 import axios from 'axios';
+import { verifySurveyAndSaveFeedback } from '../../utils/verifySurveyHelper';
 
 const BigFiveRepository = AppDataSource.getRepository(BigFive);
 const MetricsRepository = AppDataSource.getRepository(Metrics);
@@ -296,8 +297,18 @@ class PublicTransitRatioController {
                 logger.info("Behavior feedback saved", { userId, feedbackId: behaviorFeedback.id });
             }
 
+            // Gọi verify-survey API với OCEAN score mới và lưu feedback
+            const verifySurveyResult = await verifySurveyAndSaveFeedback(
+                userId,
+                result.new_ocean_score,
+                "public_transit_ratio"
+            );
+
             // Return the exact format as received from API
-            return res.status(200).json(result);
+            return res.status(200).json({
+                ...result,
+                verifySurvey: verifySurveyResult || null
+            });
 
         } catch (e) {
             if (axios.isAxiosError(e)) {
