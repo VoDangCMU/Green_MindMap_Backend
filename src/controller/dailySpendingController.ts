@@ -155,7 +155,7 @@ export class DailySpendingController {
 
             const { daily_total, base_avg } = parsed.data;
 
-            // Get user's BigFive scores
+            // Get user's BigFive scores d
             const bigFive = await BigFiveRepo.findOne({
                 where: { user: { id: userId } }
             });
