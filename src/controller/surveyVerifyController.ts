@@ -73,11 +73,8 @@ class SurveyVerifyController {
 
             const verifyResult = response.data;
 
-            // Tính toán theo công thức mới:
-            // deviation = expected - actual
-            // engagement = 1 - deviation
-            const calculatedDeviation = verifyResult.expected - verifyResult.actual;
-            const calculatedEngagement = 1 - Math.abs(calculatedDeviation);
+            const calculatedDeviation = Math.abs(verifyResult.expected - verifyResult.actual);
+            const calculatedEngagement = 1 - calculatedDeviation;
 
             logger.info("Survey verified successfully", {
                 modelId: verifyResult.model_id,
