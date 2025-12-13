@@ -1,6 +1,6 @@
 import { Router } from "express";
-import locationController from "../controller/locationController";
 import { jwtAuthMiddleware } from "../middlewares/jwtMiddleware";
+import locationController from "../controller/locationController";
 
 const router = Router();
 
@@ -15,6 +15,7 @@ router.get("/", locationController.GetLocations);
 // Lấy vị trí mới nhất của user
 router.get("/latest", locationController.GetLatestLocation);
 
+router.get('/distanceToday', locationController.GetDistanceToday);
 // Lấy một location cụ thể
 router.get("/:id", locationController.getLocationById);
 
