@@ -13,7 +13,7 @@ class UserController {
     public RegisterWithEmail: RequestHandler = async (req: Request, res: Response) => {
         const logger = getLogger();
         const startTime = Date.now();
-        const { email, password, confirm_password, full_name, date_of_birth, location, gender } = req.body;
+        const { email, password, confirm_password, full_name, date_of_birth, location, gender, region } = req.body;
 
         logger.info("User registration attempt", {
             email: email?.substring(0, 3) + "***",
@@ -28,7 +28,8 @@ class UserController {
                 fullName: full_name ? "provided" : "missing",
                 dateOfBirth: date_of_birth ? "provided" : "missing",
                 location: location ? "provided" : "missing",
-                gender: gender ? "provided" : "missing"
+                gender: gender ? "provided" : "missing",
+                region: region ? "provided" : "missing"
             });
             res.status(400).json({
                 message: "Email, password, full name, date of birth, gender and location are required"
@@ -78,6 +79,7 @@ class UserController {
                 username,
                 dateOfBirth: parsedDateOfBirth,
                 location: location,
+                region: region,
                 gender: gender.toLowerCase(),
                 role: 'user'
             });
@@ -120,6 +122,7 @@ class UserController {
                     fullName: savedUser.fullName,
                     dateOfBirth: savedUser.dateOfBirth,
                     location: savedUser.location,
+                    region: savedUser.region,
                     gender: savedUser.gender,
                     role: savedUser.role
                 },

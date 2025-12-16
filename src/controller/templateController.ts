@@ -3,6 +3,7 @@ import { z } from "zod";
 import AppDataSource from "../infrastructure/database";
 import { Template } from "../entity/templates";
 import { TemplateAnswer } from "../entity/template_answers";
+import { Models } from "../entity/models";
 import { logger } from "../infrastructure/logger";
 
 const TemplateAnswerSchema = z.object({
@@ -22,6 +23,8 @@ const TemplateSchema = z.object({
     question_type: z.string().optional(),
     filled_prompt: z.string().optional(),
     answer: TemplateAnswerSchema,
+    trait: z.string().max(1).optional(), // O, C, E, A, N
+    modelId: z.string().uuid().optional(),
 });
 
 const TemplateIdSchema = z.object({
@@ -45,6 +48,8 @@ const TemplateFromPayloadSchema = z.object({
     question_type: z.string(),
     answer: TemplateAnswerSchema,
     filled_prompt: z.string().optional(),
+    trait: z.string().max(1).optional(), // O, C, E, A, N
+    modelId: z.string().uuid().optional(),
 });
 
 const CreateTemplatesRequestSchema = z.object({
@@ -53,6 +58,7 @@ const CreateTemplatesRequestSchema = z.object({
 
 const TemplateRepository = AppDataSource.getRepository(Template);
 const TemplateAnswerRepository = AppDataSource.getRepository(TemplateAnswer);
+const ModelsRepository = AppDataSource.getRepository(Models);
 
 function validateTemplateParams(req: Request, res: Response) {
     const parsed = TemplateSchema.safeParse(req.body);
@@ -109,6 +115,24 @@ class TemplateController {
                 return res.status(400).json({ message: "Template with this ID already exists" });
             }
 
+            let trait = data.trait;
+            let model = null;
+
+            if (data.modelId) {
+                model = await ModelsRepository.findOne({
+                    where: { id: data.modelId }
+                });
+                if (!model) {
+                    return res.status(404).json({ message: `Model with ID ${data.modelId} not found` });
+                }
+                if (!trait && model.ocean) {
+                    const match = model.ocean.match(/^([OCEAN])/i);
+                    if (match) {
+                        trait = match[1].toUpperCase();
+                    }
+                }
+            }
+
             const newTemplateAnswer = TemplateAnswerRepository.create({
                 type: data.answer.type,
                 scale: data.answer.scale,
@@ -126,6 +150,8 @@ class TemplateController {
                 question_type: data.question_type,
                 filled_prompt: data.filled_prompt,
                 answer: newTemplateAnswer,
+                trait: trait,
+                model: model || undefined,
             });
 
             const createdTemplate = await TemplateRepository.save(newTemplate);
@@ -153,10 +179,39 @@ class TemplateController {
                     // Check if template already exists
                     const existedTemplate = await TemplateRepository.findOne({
                         where: { id: templateData.id },
-                        relations: ["answer"]
+                        relations: ["answer", "model"]
                     });
 
                     if (!existedTemplate) {
+                        // Xử lý trait: lấy từ request hoặc từ model.ocean
+                        let trait = templateData.trait;
+                        let model = null;
+
+                        if (templateData.modelId) {
+                            model = await ModelsRepository.findOne({
+                                where: { id: templateData.modelId }
+                            });
+                            if (!model) {
+                                errors.push(`Template ${templateData.id}: Model with ID ${templateData.modelId} not found, proceeding without model`);
+                            } else {
+                                // Nếu không có trait trong request, lấy từ model.ocean
+                                if (!trait && model.ocean) {
+                                    const match = model.ocean.match(/^([OCEAN])/i);
+                                    if (match) {
+                                        trait = match[1].toUpperCase();
+                                    }
+                                }
+                            }
+                        }
+
+                        // Nếu vẫn không có trait, thử lấy từ intent (e.g., "O_F_001" -> "O")
+                        if (!trait && templateData.intent) {
+                            const match = templateData.intent.match(/^([OCEAN])/i);
+                            if (match) {
+                                trait = match[1].toUpperCase();
+                            }
+                        }
+
                         const newTemplateAnswer = TemplateAnswerRepository.create({
                             type: templateData.answer.type,
                             scale: templateData.answer.scale,
@@ -174,6 +229,8 @@ class TemplateController {
                             question_type: templateData.question_type,
                             filled_prompt: templateData.filled_prompt,
                             answer: newTemplateAnswer,
+                            trait: trait,
+                            model: model || undefined,
                         });
 
                         const savedTemplate = await TemplateRepository.save(newTemplate);
@@ -257,7 +314,7 @@ class TemplateController {
                     id: data.id
 
                 },
-                relations: ["answer"],
+                relations: ["answer", "model"],
             });
 
             if (!existedTemplate) {
@@ -271,6 +328,29 @@ class TemplateController {
             existedTemplate.question_type = data.question_type ?? existedTemplate.question_type;
             existedTemplate.filled_prompt = data.filled_prompt ?? existedTemplate.filled_prompt;
             existedTemplate.description = data.description ?? existedTemplate.description;
+
+            // Xử lý trait và model
+            if (data.modelId) {
+                const model = await ModelsRepository.findOne({
+                    where: { id: data.modelId }
+                });
+                if (!model) {
+                    return res.status(404).json({ message: `Model with ID ${data.modelId} not found` });
+                }
+                existedTemplate.model = model;
+
+                // Nếu không có trait trong request, lấy từ model.ocean
+                if (!data.trait && model.ocean) {
+                    const match = model.ocean.match(/^([OCEAN])/i);
+                    if (match) {
+                        existedTemplate.trait = match[1].toUpperCase();
+                    }
+                }
+            }
+
+            if (data.trait) {
+                existedTemplate.trait = data.trait.toUpperCase();
+            }
 
             if (existedTemplate.answer) {
                 existedTemplate.answer.type = data.answer.type ?? existedTemplate.answer.type;

@@ -6,6 +6,7 @@ import {User} from '../entity/user';
 import { logger } from '../infrastructure/logger';
 import TEXT from "../config/schemas/Text";
 import NUMBER from "../config/schemas/Number";
+import {Between} from "typeorm";
 
 const LocationSchema = z.object({
     latitude: NUMBER,
@@ -194,24 +195,31 @@ class LocationController {
         }
     }
 
-    // Lấy tất cả vị trí của user hiện tại
+    // Lấy vị trí mới nhất của user hiện tại
     public async GetLocations (req: Request, res: Response) {
         if (!req.user || !req.user.userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
         try {
-            const locations = await LocationRepository.find({
+            // Chỉ lấy location mới nhất
+            const location = await LocationRepository.findOne({
                 where: { userId: req.user.userId },
                 order: {
                     createdAt: "DESC"
                 }
             });
 
+            if (!location) {
+                return res.status(404).json({
+                    message: "No location found for this user",
+                    data: null
+                });
+            }
+
             return res.status(200).json({
-                message: "Locations retrieved successfully",
-                data: locations,
-                count: locations.length
+                message: "Latest location retrieved successfully",
+                data: location
             });
         } catch (e) {
             logger.error('Error fetching locations', e as Error);
@@ -219,7 +227,7 @@ class LocationController {
         }
     }
 
-    // Lấy vị trí mới nhất của user
+    // Lấy vị trí mới nhất của user (alias cho GetLocations)
     public async GetLatestLocation (req: Request, res: Response) {
         if (!req.user || !req.user.userId) {
             return res.status(401).json({ message: "Unauthorized" });
@@ -232,9 +240,10 @@ class LocationController {
                     createdAt: "DESC"
                 }
             });
-
             if (!location) {
-                return res.status(404).json({ message: "No location found for this user" });
+                return res.status(404).json({
+                    message: "No location found for this user",
+                });
             }
 
             return res.status(200).json({
@@ -244,6 +253,56 @@ class LocationController {
         } catch (e) {
             logger.error('Error fetching latest location', e as Error);
             return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+
+    public async GetDistanceToday(req: Request, res: Response) {
+        if(!req.user || !req.user.userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        try {
+            let startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
+
+            let endOfDay = new Date();
+            endOfDay.setHours(23, 59, 59, 999);
+
+            const locations = await LocationRepository.find({
+                where: {
+                    userId: req.user.userId,
+                    createdAt: Between(startOfDay, endOfDay)
+                },
+                order: {
+                    createdAt: "ASC"
+                },
+                relations: {
+                    user: true
+                }
+
+            })
+
+            if (locations.length === 0) {
+                return res.status(404).json({ message: "No locations found for today" });
+            }
+
+            const totalDistance = locations.reduce((sum, location) => {
+                    return sum + (location.lengthToPreviousLocation || 0);
+                }, 0
+            );
+
+            return res.status(200).json({
+                message: "Total distance for today retrieved successfully",
+                data: {
+
+                    total_distance: totalDistance,
+                    user: locations[0].user,
+                }
+            })
+        } catch (e) {
+            logger.error('Error Get Distance To Day', e as Error);
+            return res.status(500).json({ message: "Internal server error" });
+
         }
     }
 }

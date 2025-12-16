@@ -107,11 +107,15 @@ export class QuestionSetController {
     }
 
     public async getQuestionSetsByOwner(req: Request, res: Response) {
-        const userId = req.params.ownerId || (req as any).userId; // Allow getting by ownerId param or current user
 
+        if (!req.user?.userId) {
+            res.status(401).json({
+                message: "Unauthorized"
+            })
+        }
         try {
             const questionSets = await QuestionSetsRepository.find({
-                where: { ownerId: userId },
+                where: { ownerId: req.user?.userId },
                 relations: ['owner', 'items', 'items.questionOptions', 'items.template'],
                 order: { createdAt: 'DESC' }
             });

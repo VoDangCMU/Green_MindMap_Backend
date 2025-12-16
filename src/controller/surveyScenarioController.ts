@@ -398,6 +398,67 @@ class SurveyScenarioController {
         }
     };
 
+    public GetUserQuestionSetSurveys: RequestHandler = async (req, res) => {
+        try {
+            if(!req.user?.userId) {
+                return res.status(401).json({success: false, message: "Unauthorized"});
+            }
+
+            const assignments = await AppDataSource.getRepository(ScenarioAssignment).find({
+                where: {user: {id: req.user.userId}, status: "assigned"},
+                relations: {
+                    scenario: {
+                        questionSet: {
+                            items: true
+                        }
+                    }
+                },
+                order: {createAt: "DESC"}
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: "Survey question sets retrieved successfully",
+                data: assignments
+            })
+        } catch (e: any) {
+            return res.status(500).json({success: false, message: e.message});
+        }
+    }
+
+    public GetAllQuestionByUser: RequestHandler = async (req, res) => {
+        try {
+            const userId = req.user?.userId;
+            if (!userId) {
+                return res.status(401).json({success: false, message: "Unauthorized"});
+            }
+
+            const assignments = await AppDataSource.getRepository(ScenarioAssignment).find({
+                where: {user: {id: userId}, status: "assigned"},
+                relations: {
+                    scenario: {
+                        questionSet: {
+                            items: {
+                                template: true,
+                                model: true,
+                                questionOptions: true,
+                                userAnswers: true
+                            }
+                        }
+                    }
+                },
+                order: {createAt: "DESC"}
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: "Survey questions retrieved successfully",
+                data: assignments
+            });
+        } catch (error: any) {
+            return res.status(500).json({success: false, message: error.message});
+        }
+    }
     private calculateAgeDateRange(minAge: number, maxAge: number) {
         const today = new Date();
         return {

@@ -40,6 +40,9 @@ export class User {
     location?: string;
 
     @Column({type: 'varchar', length: 50, nullable: true})
+    region?: string;
+
+    @Column({type: 'varchar', length: 50, nullable: true})
     role!: string;
 
     @Column({type: 'timestamp'})

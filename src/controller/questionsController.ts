@@ -9,7 +9,9 @@ import {logger} from '../infrastructure';
 
 const QuestionSchema = z.object({
     filled_prompt: z.string().min(1, "Question text (filled_prompt) is required"),
-    templateId: z.string().uuid("Invalid template ID")
+    templateId: z.string().uuid("Invalid template ID"),
+    trait: z.string().max(1).optional(), // O, C, E, A, N
+    modelId: z.string().uuid().optional(),
 });
 
 const QuestionUpdateSchema = z.object({
@@ -29,15 +31,19 @@ const AnswerSchema = z.object({
 });
 
 const QuestionFromPayloadSchema = z.object({
-    id: z.string(),
-    name: z.string(),
-    intent: z.string(),
-    question_type: z.string(),
-    filled_prompt: z.string(),
-    answer: AnswerSchema,
+    id: z.string().optional(),
+    name: z.string().optional(),
+    intent: z.string().optional(),
+    question_type: z.string().optional(),
+    question: z.string().optional(), // Allow 'question' field as alternative
+    filled_prompt: z.string().optional(), // Make filled_prompt optional
+    answer: AnswerSchema.optional(),
     modelId: z.string().uuid().optional(),
-    templateId: z.string().uuid().optional(), // Allow override of template ID
+    templateId: z.string().optional(), // Allow any string for templateId, not just UUID
     trait: z.string().max(1).optional(), // O, C, E, A, N
+}).refine(data => data.question || data.filled_prompt, {
+    message: "Either 'question' or 'filled_prompt' is required",
+    path: ["question"]
 });
 
 const CreateQuestionsRequestSchema = z.object({
@@ -107,9 +113,38 @@ export class QuestionsController {
                 return res.status(404).json({ message: "Template not found" });
             }
 
+            // Xử lý trait: lấy từ request hoặc từ model.ocean
+            let trait = data.trait;
+            let model = null;
+
+            if (data.modelId) {
+                model = await ModelsRepository.findOne({
+                    where: { id: data.modelId }
+                });
+                if (!model) {
+                    return res.status(404).json({ message: `Model with ID ${data.modelId} not found` });
+                }
+                // Nếu không có trait trong request, lấy từ model.ocean (ký tự đầu tiên)
+                if (!trait && model.ocean) {
+                    const match = model.ocean.match(/^([OCEAN])/i);
+                    if (match) {
+                        trait = match[1].toUpperCase();
+                    }
+                }
+            }
+
+            // Nếu vẫn không có trait, thử lấy từ template
+            if (!trait && template.trait) {
+                trait = template.trait.toUpperCase();
+            }
+
             const newQuestion = new Questions();
             newQuestion.question = data.filled_prompt; // Lưu filled_prompt vào question
             newQuestion.template = template;
+            newQuestion.trait = trait;
+            if (model) {
+                newQuestion.model = model;
+            }
 
             const savedQuestion = await QuestionsRepository.save(newQuestion);
 
@@ -168,6 +203,9 @@ export class QuestionsController {
                 const questionData = data.questions[i];
 
                 try {
+                    // Get question text from either 'question' or 'filled_prompt' field
+                    const questionText = questionData.filled_prompt || questionData.question || '';
+
                     // Determine which templateId to use (question's templateId > defaultTemplateId > questionData.id)
                     const templateIdToUse = questionData.templateId || data.defaultTemplateId || questionData.id;
 
@@ -187,7 +225,7 @@ export class QuestionsController {
                     // Check if the exact same question text already exists (to prevent true duplicates)
                     const existedQuestion = await QuestionsRepository.findOne({
                         where: {
-                            question: questionData.filled_prompt,
+                            question: questionText,
                             templateId: templateIdToUse
                         },
                         relations: ["questionOptions", "model", "owner", "template"]
@@ -221,7 +259,7 @@ export class QuestionsController {
 
                         // Create new question with all fields including ownerId
                         const newQuestion = QuestionsRepository.create({
-                            question: questionData.filled_prompt,
+                            question: questionText,
                             templateId: templateIdToUse,
                             template: template || undefined,
                             behaviorInput: questionData.name,
@@ -236,27 +274,29 @@ export class QuestionsController {
                         // Create question options based on answer type
                         const questionOptions = [];
 
-                        if (questionData.answer.type === 'scale' && questionData.answer.labels) {
-                            // For scale type with labels
-                            for (let j = 0; j < questionData.answer.labels.length; j++) {
-                                const option = QuestionOptionsRepository.create({
-                                    question: savedQuestion,
-                                    text: questionData.answer.labels[j],
-                                    value: questionData.answer.scale ? questionData.answer.scale[j].toString() : (j + 1).toString(),
-                                    order: j
-                                });
-                                questionOptions.push(option);
-                            }
-                        } else if (questionData.answer.type === 'binary' && questionData.answer.options) {
-                            // For binary type with options
-                            for (let j = 0; j < questionData.answer.options.length; j++) {
-                                const option = QuestionOptionsRepository.create({
-                                    question: savedQuestion,
-                                    text: questionData.answer.options[j],
-                                    value: j.toString(),
-                                    order: j
-                                });
-                                questionOptions.push(option);
+                        if (questionData.answer) {
+                            if (questionData.answer.type === 'scale' && questionData.answer.labels) {
+                                // For scale type with labels
+                                for (let j = 0; j < questionData.answer.labels.length; j++) {
+                                    const option = QuestionOptionsRepository.create({
+                                        question: savedQuestion,
+                                        text: questionData.answer.labels[j],
+                                        value: questionData.answer.scale ? questionData.answer.scale[j].toString() : (j + 1).toString(),
+                                        order: j
+                                    });
+                                    questionOptions.push(option);
+                                }
+                            } else if (questionData.answer.type === 'binary' && questionData.answer.options) {
+                                // For binary type with options
+                                for (let j = 0; j < questionData.answer.options.length; j++) {
+                                    const option = QuestionOptionsRepository.create({
+                                        question: savedQuestion,
+                                        text: questionData.answer.options[j],
+                                        value: j.toString(),
+                                        order: j
+                                    });
+                                    questionOptions.push(option);
+                                }
                             }
                         }
 
@@ -483,8 +523,28 @@ export class QuestionsController {
         const ownerId = req.params.ownerId || (req as any).userId; // Allow getting by ownerId param or current user
 
         try {
+            // Sử dụng find với take: 1 thay vì findOne vì findOne yêu cầu where conditions
+            const latestModels = await ModelsRepository.find({
+                order: { createdAt: 'DESC' },
+                take: 1
+            });
+
+            const latestModel = latestModels.length > 0 ? latestModels[0] : null;
+
+            if (!latestModel) {
+                return res.status(404).json({
+                    message: "No model found",
+                    data: [],
+                    count: 0
+                });
+            }
+
+            // Lấy các câu hỏi của owner với model_id mới nhất
             const questions = await QuestionsRepository.find({
-                where: { ownerId: ownerId },
+                where: {
+                    ownerId: ownerId,
+                    model: { id: latestModel.id }
+                },
                 relations: ['template', 'owner', 'questionOptions', 'model'],
                 order: { createdAt: 'DESC' }
             });
@@ -492,7 +552,9 @@ export class QuestionsController {
             return res.status(200).json({
                 message: `Questions for owner retrieved successfully`,
                 data: questions,
-                count: questions.length
+                count: questions.length,
+                modelId: latestModel.id,
+                modelCreatedAt: latestModel.createdAt
             });
         } catch (e) {
             logger.error('Error fetching questions by owner', e as Error);
