@@ -52,7 +52,7 @@ export class SimulatedSurvey {
         fullName: string;
         age: number | null;
         gender: string | null;
-        location: string | null;
+        location: string | string[] | null;
         status: "assigned" | "not_assigned";
     }[];
 

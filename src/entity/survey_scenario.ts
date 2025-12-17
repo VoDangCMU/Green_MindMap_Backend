@@ -11,6 +11,7 @@ import {
 import {ScenarioAssignment} from "../entity/scenario_assignments";
 import {SimulatedSurvey} from "../entity/simulated_survey";
 import {QuestionSets} from "../entity/question_sets";
+import {User} from "../entity/user";
 
 export const SURVEY_SCENARIOS_TABLE_NAME = 'survey_scenarios';
 
@@ -30,8 +31,11 @@ export class SurveyScenario {
     })
     simulatedSurvey!: SimulatedSurvey;
 
-    @Column({type: "varchar", length: 255, nullable: true})
-    location!: string;
+    @ManyToOne(() => User, {onDelete: "CASCADE", onUpdate: "CASCADE"})
+    user!: User;
+
+    @Column({type: "simple-json", nullable: true, default: []})
+    location!: string[];
 
     @ManyToOne(() => QuestionSets, {onDelete: "CASCADE", onUpdate: "CASCADE"})
     questionSet!: QuestionSets;

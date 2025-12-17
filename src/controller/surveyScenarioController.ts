@@ -14,7 +14,7 @@ import {QuestionSets} from "../entity/question_sets";
 const SurveyScenarioParamsSchema = z.object({
     minAge: NUMBER,
     maxAge: NUMBER,
-    address: z.string().optional(),
+    address: z.array(z.string()).min(1, "At least one location is required").optional(),
     percentage: NUMBER,
     gender: TEXT.optional(),
 });
@@ -33,6 +33,11 @@ class SurveyScenarioController {
 
     public CreateSurveyScenario: RequestHandler = async (req, res) => {
         try {
+            const user = await this.UserRepo.findOne({ where: { id: req.user?.userId } });
+            if (!user) {
+                return res.status(404).json({ success: false, message: "User not found" });
+            }
+
             const parsed = SurveyScenarioParamsSchema.safeParse(req.body);
             if (!parsed.success)
                 return res.status(400).json({
@@ -58,6 +63,7 @@ class SurveyScenarioController {
                 percentage,
                 location: address,
                 status: "draft",
+                user
             });
 
             if (gender.toLowerCase() !== "all") {
@@ -349,8 +355,6 @@ class SurveyScenarioController {
             return res.status(500).json({ success: false, message: error.message });
         }
     }
-
-
     public GetUserQuestionsSurvey: RequestHandler = async (req, res) => {
         try {
             const userId = req.user?.userId;
@@ -471,15 +475,15 @@ class SurveyScenarioController {
     private buildEligibleUsersQuery(args: {
         minBirthDate: Date;
         maxBirthDate: Date;
-        location?: string;
+        location?: string[];
         gender?: string;
     }) {
         const { minBirthDate, maxBirthDate, location, gender } = args;
         const qb = this.UserRepo.createQueryBuilder("user")
             .where("user.dateOfBirth BETWEEN :minBirthDate AND :maxBirthDate", { minBirthDate, maxBirthDate });
 
-        if (location)
-            qb.andWhere("user.location = :location", { location });
+        if (location && location.length > 0)
+            qb.andWhere("user.location IN (:...locations)", { locations: location });
         if (gender)
             qb.andWhere("user.gender = :gender", { gender });
 
