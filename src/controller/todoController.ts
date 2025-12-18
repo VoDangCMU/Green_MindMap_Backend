@@ -557,8 +557,7 @@ class TodoController {
                 'https://ai-greenmind.khoav4.com/list_adherence',
                 requestData,
                 {
-                    headers: { 'Content-Type': 'application/json' },
-                    timeout: 10000
+                    headers: { 'Content-Type': 'application/json' }
                 }
             );
 
@@ -667,8 +666,7 @@ class TodoController {
                 'https://ai-greenmind.khoav4.com/list_adherence',
                 requestData,
                 {
-                    headers: { 'Content-Type': 'application/json' },
-                    timeout: 10000
+                    headers: { 'Content-Type': 'application/json' }
                 }
             );
 

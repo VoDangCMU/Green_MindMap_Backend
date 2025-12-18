@@ -83,8 +83,7 @@ export async function verifySurveyAndSaveFeedback(
             {
                 headers: {
                     'Content-Type': 'application/json'
-                },
-                timeout: 30000
+                }
             }
         );
 
@@ -141,4 +140,3 @@ export async function verifySurveyAndSaveFeedback(
         return null;
     }
 }
-

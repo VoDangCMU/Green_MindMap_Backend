@@ -45,8 +45,7 @@ class HealthyFoodController {
                 {
                     headers: {
                         ...formData.getHeaders()
-                    },
-                    timeout: 30000
+                    }
                 }
             );
 
@@ -71,4 +70,3 @@ class HealthyFoodController {
 }
 
 export default new HealthyFoodController();
-

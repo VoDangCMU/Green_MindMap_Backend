@@ -67,8 +67,7 @@ class SurveyVerifyController {
                 {
                     headers: {
                         'Content-Type': 'application/json'
-                    },
-                    timeout: 30000
+                    }
                 }
             );
 

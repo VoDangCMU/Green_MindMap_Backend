@@ -192,8 +192,7 @@ class BrandController {
                 'https://ai-greenmind.khoav4.com/brand_novelty',
                 requestData,
                 {
-                    headers: { 'Content-Type': 'application/json' },
-                    timeout: 10000
+                    headers: { 'Content-Type': 'application/json' }
                 }
             );
 
@@ -242,4 +241,3 @@ class BrandController {
 }
 
 export default new BrandController();
-

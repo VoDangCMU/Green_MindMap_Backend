@@ -65,8 +65,7 @@ class OCRController {
                 {
                     headers: {
                         ...formData.getHeaders()
-                    },
-                    timeout: 30000
+                    }
                 }
             );
 
