@@ -9,6 +9,8 @@ import { GoogleLoginHelper } from "../utils/googleLoginHelper";
 import { BitmapHelper } from "../utils/bitmapHelper";
 import { getLogger } from "../infrastructure/logger";
 import { UsernameHelper } from "../utils/usernameHelper";
+import { BigFive, BigFiveType } from "../entity/big_five";
+
 class UserController {
     public RegisterWithEmail: RequestHandler = async (req: Request, res: Response) => {
         const logger = getLogger();
@@ -85,6 +87,32 @@ class UserController {
             });
 
             const savedUser = await userRepository.save(newUser);
+
+            // Create BigFive record for user with default values
+            const bigFiveRepository = AppDataSource.getRepository(BigFive);
+            let existingBigFive = await bigFiveRepository.findOne({
+                where: { referenceId: savedUser.id, type: BigFiveType.USER }
+            });
+
+            if (existingBigFive) {
+                existingBigFive.openness = 0.5;
+                existingBigFive.conscientiousness = 0.5;
+                existingBigFive.extraversion = 0.5;
+                existingBigFive.agreeableness = 0.5;
+                existingBigFive.neuroticism = 0.5;
+                await bigFiveRepository.save(existingBigFive);
+            } else {
+                const newBigFive = bigFiveRepository.create({
+                    openness: 0.5,
+                    conscientiousness: 0.5,
+                    extraversion: 0.5,
+                    agreeableness: 0.5,
+                    neuroticism: 0.5,
+                    type: BigFiveType.USER,
+                    referenceId: savedUser.id
+                });
+                await bigFiveRepository.save(newBigFive);
+            }
 
             const payload = {
                 userId: savedUser.id,

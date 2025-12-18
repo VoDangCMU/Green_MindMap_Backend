@@ -2,6 +2,7 @@ import { Request, Response, RequestHandler } from "express";
 import AppDataSource from "../infrastructure/database";
 import { Feedback } from "../entity/feedback";
 import { BehaviorFeedback } from "../entity/behavior_feedback";
+import { Models } from "../entity/models";
 import { getLogger } from "../infrastructure/logger";
 import axios from "axios";
 
@@ -219,6 +220,138 @@ class SurveyVerifyController {
             res.status(200).json(formattedFeedbacks);
         } catch (error) {
             logger.error("Error retrieving feedbacks", error as Error);
+            res.status(500).json({ message: "Internal server error" });
+        }
+    };
+
+    /**
+     * Get feedbacks by model ID (through segments)
+     * GET /api/models/:id/feedbacks
+     */
+    public getFeedbacksByModelId: RequestHandler = async (req: Request, res: Response) => {
+        const logger = getLogger();
+        const { id: modelId } = req.params;
+
+        if (!modelId) {
+            res.status(400).json({ message: "Model ID is required" });
+            return;
+        }
+
+        try {
+            const feedbackRepository = AppDataSource.getRepository(Feedback);
+            const behaviorFeedbackRepository = AppDataSource.getRepository(BehaviorFeedback);
+            const modelRepository = AppDataSource.getRepository(Models);
+
+            // Get the model first
+            const model = await modelRepository.findOne({
+                where: { id: modelId }
+            });
+
+            if (!model) {
+                res.status(404).json({ message: "Model not found" });
+                return;
+            }
+
+            // Get all feedbacks for this model (through segments that belong to this model)
+            const feedbacks = await feedbackRepository.find({
+                where: [
+                    { modelId: modelId },
+                    { segment: { modelId: modelId } }
+                ],
+                relations: ['model', 'segment'],
+                order: { createdAt: 'DESC' }
+            });
+
+            logger.info("Feedbacks by model retrieved successfully", { modelId, count: feedbacks.length });
+
+            // Cache behavior feedbacks theo modelId
+            const behaviorFeedbackCache = new Map<string, any[]>();
+
+            // Format response
+            const formattedFeedbacks = await Promise.all(feedbacks.map(async (feedback) => {
+                const engagement = 1 - Math.abs(Number(feedback.deviation));
+
+                let mechanismFeedbacksByMetric: any[] = [];
+
+                const feedbackModelId = feedback.modelId || feedback.segment?.modelId;
+                if (feedbackModelId) {
+                    if (!behaviorFeedbackCache.has(feedbackModelId)) {
+                        const behaviorFeedbacks = await behaviorFeedbackRepository.find({
+                            where: { modelId: feedbackModelId },
+                            order: { createdAt: 'DESC' }
+                        });
+
+                        const groupedByMetric = new Map<string, any[]>();
+
+                        behaviorFeedbacks.forEach(bf => {
+                            if (!bf.mechanismFeedback) return;
+
+                            if (!groupedByMetric.has(bf.metric)) {
+                                groupedByMetric.set(bf.metric, []);
+                            }
+
+                            groupedByMetric.get(bf.metric)!.push({
+                                id: bf.id,
+                                awareness: bf.mechanismFeedback.awareness,
+                                motivation: bf.mechanismFeedback.motivation,
+                                capability: bf.mechanismFeedback.capability,
+                                opportunity: bf.mechanismFeedback.opportunity,
+                                createdAt: bf.createdAt
+                            });
+                        });
+
+                        const result = Array.from(groupedByMetric.entries()).map(([metricType, mechanismFeedbacks]) => ({
+                            metricType,
+                            mechanismFeedbacks
+                        }));
+
+                        behaviorFeedbackCache.set(feedbackModelId, result);
+                    }
+
+                    mechanismFeedbacksByMetric = behaviorFeedbackCache.get(feedbackModelId) || [];
+                }
+
+                return {
+                    id: feedback.id,
+                    model_id: feedback.modelId || feedback.segment?.modelId,
+                    segment_id: feedback.segmentId,
+                    user_id: feedback.user_id,
+                    trait_checked: feedback.trait_checked,
+                    expected: feedback.expected,
+                    actual: feedback.actual,
+                    deviation: feedback.deviation,
+                    engagement: engagement,
+                    match: feedback.match,
+                    level: feedback.level,
+                    feedback: feedback.feedback,
+                    mechanismFeedbacks: mechanismFeedbacksByMetric,
+                    createdAt: feedback.createdAt,
+                    updatedAt: feedback.updatedAt,
+                    segment: feedback.segment ? {
+                        id: feedback.segment.id,
+                        name: feedback.segment.name,
+                        location: feedback.segment.location,
+                        ageRange: feedback.segment.ageRange,
+                        gender: feedback.segment.gender
+                    } : null
+                };
+            }));
+
+            // Add model info at the end of response
+            res.status(200).json({
+                feedbacks: formattedFeedbacks,
+                model: {
+                    id: model.id,
+                    ocean: model.ocean,
+                    behavior: model.behavior,
+                    age: model.age,
+                    location: model.location,
+                    gender: model.gender,
+                    keywords: model.keywords
+                }
+            });
+        } catch (error) {
+            logger.error("Error retrieving feedbacks by model ID", error as Error);
             res.status(500).json({ message: "Internal server error" });
         }
     };

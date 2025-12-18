@@ -243,6 +243,15 @@ class AverageDailySpendController {
                 });
             }
 
+            // Lưu previous OCEAN score trước khi cập nhật
+            const previousOceanScore = {
+                O: user.bigFive.openness,
+                C: user.bigFive.conscientiousness,
+                E: user.bigFive.extraversion,
+                A: user.bigFive.agreeableness,
+                N: user.bigFive.neuroticism
+            };
+
             const direction = latestTotalSpend > avgSpend ? "up" : "down";
 
             // Gọi API để tính toán metrics mới
@@ -368,7 +377,7 @@ class AverageDailySpendController {
                 });
             }
 
-            // Save feedback to behavior_feedbacks table
+            // Save feedback to behavior_feedbacks table (không lưu oceanScore nữa)
             if (apiResult.mechanismFeedback) {
                 const behaviorFeedback = BehaviorFeedbackRepo.create({
                     userId: userId,
@@ -379,18 +388,19 @@ class AverageDailySpendController {
                     n: apiResult.n,
                     contrib: apiResult.contrib,
                     mechanismFeedback: apiResult.mechanismFeedback,
-                    reason: apiResult.reason,
-                    oceanScore: apiResult.new_ocean_score
+                    reason: apiResult.reason
                 });
 
                 await BehaviorFeedbackRepo.save(behaviorFeedback);
                 logger.info("Behavior feedback saved", { userId, feedbackId: behaviorFeedback.id });
             }
             // Gọi verify-survey API với OCEAN score mới và lưu feedback
+            // (Helper sẽ cập nhật BigFive cho user và segment)
             const verifySurveyResult = await verifySurveyAndSaveFeedback(
                 userId,
                 apiResult.new_ocean_score,
-                "avg_daily_spend"
+                "avg_daily_spend",
+                previousOceanScore
             );
 
 

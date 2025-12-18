@@ -170,6 +170,15 @@ class NightOutFreqController {
                 return res.status(404).json({ error: "User or BigFive not found" });
             }
 
+            // Lưu previous OCEAN score trước khi cập nhật
+            const previousOceanScore = {
+                O: user.bigFive.openness,
+                C: user.bigFive.conscientiousness,
+                E: user.bigFive.extraversion,
+                A: user.bigFive.agreeableness,
+                N: user.bigFive.neuroticism
+            };
+
             // Call AI API
             logger.info("Calling AI API for night_out_freq", { userId, payload: requestData });
 
@@ -230,7 +239,7 @@ class NightOutFreqController {
             await MetricsRepository.save(metricRecord);
             logger.info("Metrics updated", { userId, metricId: metricRecord.id });
 
-            // Save feedback to behavior_feedbacks table
+            // Save feedback to behavior_feedbacks table (không lưu oceanScore nữa)
             if (aiData.mechanismFeedback) {
                 // Tự động tìm model phù hợp với user
                 const matchingModel = await findMatchingModel(userId);
@@ -246,34 +255,20 @@ class NightOutFreqController {
                     n: aiData.n,
                     contrib: aiData.contrib,
                     mechanismFeedback: aiData.mechanismFeedback,
-                    reason: aiData.reason,
-                    oceanScore: aiData.new_ocean_score
+                    reason: aiData.reason
                 });
 
                 await BehaviorFeedbackRepository.save(behaviorFeedback);
                 logger.info("Behavior feedback saved", { userId, modelId, feedbackId: behaviorFeedback.id });
             }
 
-            // Update BigFive with new ocean scores
-            if (aiData.new_ocean_score) {
-                user.bigFive.openness = aiData.new_ocean_score.O;
-                user.bigFive.conscientiousness = aiData.new_ocean_score.C;
-                user.bigFive.extraversion = aiData.new_ocean_score.E;
-                user.bigFive.agreeableness = aiData.new_ocean_score.A;
-                user.bigFive.neuroticism = aiData.new_ocean_score.N;
-
-                await BigFiveRepository.save(user.bigFive);
-                logger.info("BigFive updated with new ocean scores", {
-                    userId,
-                    newScores: aiData.new_ocean_score
-                });
-            }
-
             // Gọi verify-survey API với OCEAN score mới và lưu feedback
+            // (Helper sẽ cập nhật BigFive cho user và segment)
             const verifySurveyResult = await verifySurveyAndSaveFeedback(
                 userId,
                 aiData.new_ocean_score,
-                "night_out_freq"
+                "night_out_freq",
+                previousOceanScore
             );
 
             // Return the exact format as received from AI API

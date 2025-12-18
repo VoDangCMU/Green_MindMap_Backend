@@ -8,18 +8,26 @@ import {
     JoinColumn
 } from 'typeorm';
 import { Models } from './models';
+import { Segment } from './segments';
 
 @Entity('feedbacks')
 export class Feedback {
     @PrimaryGeneratedColumn('uuid')
     id!: string;
 
-    @ManyToOne(() => Models)
+    @ManyToOne(() => Models, { nullable: true })
     @JoinColumn({ name: 'model_id' })
-    model!: Models;
+    model?: Models;
 
-    @Column({ type: 'uuid', name: 'model_id' })
-    modelId!: string;
+    @Column({ type: 'uuid', name: 'model_id', nullable: true })
+    modelId?: string;
+
+    @ManyToOne(() => Segment, { nullable: true })
+    @JoinColumn({ name: 'segment_id' })
+    segment?: Segment;
+
+    @Column({ type: 'uuid', name: 'segment_id', nullable: true })
+    segmentId?: string;
 
     @Column({ type: 'varchar', length: 100 })
     user_id!: string;

@@ -5,6 +5,13 @@ import { UserAnswers } from '../entity/user_answers';
 import { User } from '../entity/user';
 import { Questions } from '../entity/questions';
 import { logger } from '../infrastructure/logger';
+import { BigFive, BigFiveType } from '../entity/big_five';
+import { Feedback } from '../entity/feedback';
+import { Segment } from '../entity/segments';
+import { ScenarioAssignment } from '../entity/scenario_assignments';
+import { Models } from '../entity/models';
+
+const AI_BASE_URL = 'https://ai-greenmind.khoav4.com';
 
 const UserAnswersSchema = z.object({
     userId: z.string().uuid(),
@@ -89,25 +96,35 @@ class UserAnswersController {
             const userRepo = queryRunner.manager.getRepository(User);
             const questionRepo = queryRunner.manager.getRepository(Questions);
             const userAnswerRepo = queryRunner.manager.getRepository(UserAnswers);
+            const bigFiveRepo = queryRunner.manager.getRepository(BigFive);
+            const feedbackRepo = queryRunner.manager.getRepository(Feedback);
+            const segmentRepo = queryRunner.manager.getRepository(Segment);
+            const assignmentRepo = queryRunner.manager.getRepository(ScenarioAssignment);
 
             const user = await userRepo.findOne({
-                where: {
-                    id: userId
-                }
+                where: { id: userId }
             });
             if (!user) {
                 await queryRunner.rollbackTransaction();
                 return res.status(404).json({ message: `User ${userId} not found` });
             }
 
+            // Calculate user age
+            const today = new Date();
+            const birthDate = user.dateOfBirth ? new Date(user.dateOfBirth) : null;
+            const userAge = birthDate
+                ? Math.floor((today.getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+                : 25;
+
             const savedAnswers: UserAnswers[] = [];
             const notFoundQuestions: string[] = [];
+            const questionsWithDetails: any[] = [];
+            let modelFromQuestion: Models | null = null;
 
             for (const ans of answers) {
                 const question = await questionRepo.findOne({
-                    where: {
-                        id: ans.questionId
-                    }
+                    where: { id: ans.questionId },
+                    relations: ['template', 'model']
                 });
 
                 if (!question) {
@@ -115,11 +132,13 @@ class UserAnswersController {
                     continue;
                 }
 
+                // Get model from first question that has it
+                if (!modelFromQuestion && question.model) {
+                    modelFromQuestion = question.model;
+                }
+
                 const existing = await userAnswerRepo.findOne({
-                    where: {
-                        userId: userId,
-                        questionId: ans.questionId
-                    },
+                    where: { userId: userId, questionId: ans.questionId },
                 });
 
                 let saved: UserAnswers;
@@ -139,14 +158,240 @@ class UserAnswersController {
                 }
 
                 savedAnswers.push(saved);
+
+                // Prepare data for AI API
+                const template = question.template;
+                const questionType = template?.question_type || template?.intent || 'yesno';
+                const trait = question.trait || template?.trait || 'O';
+
+                questionsWithDetails.push({
+                    trait: trait,
+                    text: question.question,
+                    ans: ans.answer,
+                    key: 'pos', // Default, can be enhanced based on question metadata
+                    kind: questionType
+                });
             }
 
             await queryRunner.commitTransaction();
+
+            // Step 1: Call calculate_ocean API
+            let oceanScores: { O: number; C: number; E: number; A: number; N: number } | null = null;
+            try {
+                const calculateOceanResponse = await fetch(`${AI_BASE_URL}/calculate_ocean`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        answers: questionsWithDetails
+                    })
+                });
+
+                if (calculateOceanResponse.ok) {
+                    const oceanResult = await calculateOceanResponse.json();
+                    oceanScores = oceanResult.scores;
+                    logger.info('OCEAN scores calculated', { userId, scores: oceanScores });
+
+                    // Check if oceanScores is valid before using
+                    if (!oceanScores) {
+                        logger.error('OCEAN scores is null or undefined', undefined, { userId });
+                        return res.status(500).json({ error: 'Failed to calculate OCEAN scores' });
+                    }
+
+                    // Step 2: Update BigFive for user (convert from xx.xx to 0.xx)
+                    let userBigFive = await bigFiveRepo.findOne({
+                        where: { referenceId: userId, type: BigFiveType.USER }
+                    });
+
+                    if (userBigFive) {
+                        userBigFive.openness = oceanScores.O / 100;
+                        userBigFive.conscientiousness = oceanScores.C / 100;
+                        userBigFive.extraversion = oceanScores.E / 100;
+                        userBigFive.agreeableness = oceanScores.A / 100;
+                        userBigFive.neuroticism = oceanScores.N / 100;
+                        await bigFiveRepo.save(userBigFive);
+                    } else {
+                        userBigFive = bigFiveRepo.create({
+                            openness: oceanScores.O / 100,
+                            conscientiousness: oceanScores.C / 100,
+                            extraversion: oceanScores.E / 100,
+                            agreeableness: oceanScores.A / 100,
+                            neuroticism: oceanScores.N / 100,
+                            type: BigFiveType.USER,
+                            referenceId: userId
+                        });
+                        await bigFiveRepo.save(userBigFive);
+                    }
+
+                    // Step 3: Call verify-survey API and save feedback for each segment
+                    // Step 4: Find segment related to user and update group OCEAN
+                    try {
+                        // Find user's assignments to get related segments
+                        const userAssignments = await assignmentRepo.find({
+                            where: { user: { id: userId }, status: 'assigned' },
+                            relations: ['scenario', 'scenario.questionSet', 'scenario.questionSet.model']
+                        });
+
+                        for (const assignment of userAssignments) {
+                            const scenarioModel = assignment.scenario?.questionSet?.model;
+                            if (!scenarioModel) continue;
+
+                            // Find segment matching user's attributes and model
+                            const segment = await segmentRepo.findOne({
+                                where: {
+                                    modelId: scenarioModel.id,
+                                    location: user.location || undefined,
+                                    gender: user.gender || undefined
+                                }
+                            });
+
+                            if (!segment) continue;
+
+                            // Call verify-survey API for this segment
+                            try {
+                                const verifySurveyResponse = await fetch(`${AI_BASE_URL}/verify-survey`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        model: {
+                                            id: scenarioModel.id,
+                                            ocean: scenarioModel.ocean,
+                                            behavior: scenarioModel.behavior,
+                                            age: scenarioModel.age,
+                                            location: scenarioModel.location,
+                                            gender: scenarioModel.gender,
+                                            keywords: scenarioModel.keywords
+                                        },
+                                        user_id: userId,
+                                        survey_result: {
+                                            O: userBigFive.openness,
+                                            C: userBigFive.conscientiousness,
+                                            E: userBigFive.extraversion,
+                                            A: userBigFive.agreeableness,
+                                            N: userBigFive.neuroticism
+                                        }
+                                    })
+                                });
+
+                                if (verifySurveyResponse.ok) {
+                                    const verifyResult = await verifySurveyResponse.json();
+                                    logger.info('Survey verified for segment', { userId, segmentId: segment.id, result: verifyResult });
+
+                                    // Save feedback with segmentId instead of just modelId
+                                    const feedback = feedbackRepo.create({
+                                        modelId: scenarioModel.id,
+                                        segmentId: segment.id,
+                                        user_id: userId,
+                                        trait_checked: verifyResult.trait_checked,
+                                        expected: verifyResult.expected,
+                                        actual: verifyResult.actual,
+                                        deviation: verifyResult.deviation,
+                                        match: verifyResult.match,
+                                        level: verifyResult.level,
+                                        feedback: verifyResult.feedback
+                                    });
+                                    await feedbackRepo.save(feedback);
+                                }
+                            } catch (verifyErr) {
+                                logger.error('Error calling verify-survey API for segment', verifyErr as Error);
+                            }
+
+                            // Get all users in this segment
+                            const segmentUsers = await userRepo.find({
+                                where: {
+                                    location: segment.location || undefined,
+                                    gender: segment.gender || undefined
+                                }
+                            });
+
+                            // Get BigFive scores for all segment users
+                            const usersWithScores: { user_id: string; scores: { O: number; C: number; E: number; A: number; N: number } }[] = [];
+
+                            for (const segUser of segmentUsers) {
+                                const segUserBigFive = await bigFiveRepo.findOne({
+                                    where: { referenceId: segUser.id, type: BigFiveType.USER }
+                                });
+
+                                if (segUserBigFive) {
+                                    usersWithScores.push({
+                                        user_id: segUser.id,
+                                        scores: {
+                                            O: segUserBigFive.openness * 100,
+                                            C: segUserBigFive.conscientiousness * 100,
+                                            E: segUserBigFive.extraversion * 100,
+                                            A: segUserBigFive.agreeableness * 100,
+                                            N: segUserBigFive.neuroticism * 100
+                                        }
+                                    });
+                                }
+                            }
+
+                            if (usersWithScores.length === 0) continue;
+
+                            // Call calculate_group_ocean API
+                            const groupOceanResponse = await fetch(`${AI_BASE_URL}/calculate_group_ocean`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    target_segment: {
+                                        location_detail: segment.location || user.location,
+                                        age_detail: userAge,
+                                        gender_detail: segment.gender || user.gender
+                                    },
+                                    users: usersWithScores
+                                })
+                            });
+
+                            if (groupOceanResponse.ok) {
+                                const groupResult = await groupOceanResponse.json();
+                                const groupScores = groupResult.group_ocean_score;
+                                logger.info('Group OCEAN calculated', { segmentId: segment.id, scores: groupScores });
+
+                                // Update segment's BigFive
+                                let segmentBigFive = await bigFiveRepo.findOne({
+                                    where: { referenceId: segment.id, type: BigFiveType.SEGMENT }
+                                });
+
+                                if (segmentBigFive) {
+                                    segmentBigFive.openness = groupScores.O / 100;
+                                    segmentBigFive.conscientiousness = groupScores.C / 100;
+                                    segmentBigFive.extraversion = groupScores.E / 100;
+                                    segmentBigFive.agreeableness = groupScores.A / 100;
+                                    segmentBigFive.neuroticism = groupScores.N / 100;
+                                    await bigFiveRepo.save(segmentBigFive);
+                                } else {
+                                    segmentBigFive = bigFiveRepo.create({
+                                        openness: groupScores.O / 100,
+                                        conscientiousness: groupScores.C / 100,
+                                        extraversion: groupScores.E / 100,
+                                        agreeableness: groupScores.A / 100,
+                                        neuroticism: groupScores.N / 100,
+                                        type: BigFiveType.SEGMENT,
+                                        referenceId: segment.id
+                                    });
+                                    await bigFiveRepo.save(segmentBigFive);
+                                }
+                            }
+                        }
+                    } catch (groupErr) {
+                        logger.error('Error calculating group OCEAN', groupErr as Error);
+                    }
+                }
+            } catch (oceanErr) {
+                logger.error('Error calling calculate_ocean API', oceanErr as Error);
+            }
 
             const response = {
                 message: 'Submit success',
                 totalAnswered: savedAnswers.length,
                 data: savedAnswers,
+                oceanScores: oceanScores ? {
+                    O: oceanScores.O / 100,
+                    C: oceanScores.C / 100,
+                    E: oceanScores.E / 100,
+                    A: oceanScores.A / 100,
+                    N: oceanScores.N / 100
+                } : null
             };
 
             return res.status(200).json(response);

@@ -391,6 +391,15 @@ class SpendVariabilityController {
                 return res.status(404).json({ error: "User not found" });
             }
 
+            // Lưu previous OCEAN score trước khi cập nhật
+            const previousOceanScore = user.bigFive ? {
+                O: user.bigFive.openness,
+                C: user.bigFive.conscientiousness,
+                E: user.bigFive.extraversion,
+                A: user.bigFive.agreeableness,
+                N: user.bigFive.neuroticism
+            } : null;
+
             // Update or create BigFive
             let bigFive = user.bigFive;
             if (!bigFive) {
@@ -464,7 +473,7 @@ class SpendVariabilityController {
                 type: "spend_variability"
             });
 
-            // Save feedback to behavior_feedbacks table
+            // Save feedback to behavior_feedbacks table (không lưu oceanScore nữa)
             if (result.mechanismFeedback) {
                 // Tự động tìm model phù hợp với user
                 const matchingModel = await findMatchingModel(userId);
@@ -480,8 +489,7 @@ class SpendVariabilityController {
                     n: result.n,
                     contrib: result.contrib,
                     mechanismFeedback: result.mechanismFeedback,
-                    reason: result.reason,
-                    oceanScore: result.new_ocean_score
+                    reason: result.reason
                 });
 
                 await BehaviorFeedbackRepository.save(behaviorFeedback);
@@ -489,10 +497,12 @@ class SpendVariabilityController {
             }
 
             // Gọi verify-survey API với OCEAN score mới và lưu feedback
+            // (Helper sẽ cập nhật BigFive cho user và segment)
             const verifySurveyResult = await verifySurveyAndSaveFeedback(
                 userId,
                 result.new_ocean_score,
-                "spend_variability"
+                "spend_variability",
+                previousOceanScore
             );
 
             // Return the exact format as received from API
