@@ -8,6 +8,7 @@ import {
     JoinColumn
 } from 'typeorm';
 import { User } from './user';
+import { Models } from './models';
 
 @Entity('behavior_feedbacks')
 export class BehaviorFeedback {
@@ -20,6 +21,13 @@ export class BehaviorFeedback {
 
     @Column({ type: 'uuid', name: 'user_id' })
     userId!: string;
+
+    @ManyToOne(() => Models)
+    @JoinColumn({ name: 'model_id' })
+    model!: Models;
+
+    @Column({ type: 'uuid', name: 'model_id', nullable: true })
+    modelId?: string;
 
     @Column({ type: 'varchar', length: 50 })
     metric!: string;
@@ -65,4 +73,3 @@ export class BehaviorFeedback {
     @UpdateDateColumn({ type: 'timestamp' })
     updatedAt!: Date;
 }
-

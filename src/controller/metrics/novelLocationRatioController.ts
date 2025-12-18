@@ -7,6 +7,8 @@ import { User } from '../../entity/user';
 import { BehaviorFeedback } from '../../entity/behavior_feedback';
 import { logger } from '../../infrastructure';
 import axios from 'axios';
+import { verifySurveyAndSaveFeedback } from '../../utils/verifySurveyHelper';
+import { findMatchingModel } from '../../utils/modelMatcher';
 
 const BigFiveRepository = AppDataSource.getRepository(BigFive);
 const MetricsRepository = AppDataSource.getRepository(Metrics);
@@ -279,8 +281,13 @@ class NovelLocationRatioController {
 
             // Save feedback to behavior_feedbacks table
             if (result.mechanismFeedback) {
+                // Tự động tìm model phù hợp với user
+                const matchingModel = await findMatchingModel(userId);
+                const modelId = matchingModel?.id;
+
                 const behaviorFeedback = BehaviorFeedbackRepository.create({
                     userId: userId,
+                    modelId: modelId || undefined,
                     metric: "novel_location_ratio",
                     vt: result.vt,
                     bt: result.bt,
@@ -293,11 +300,21 @@ class NovelLocationRatioController {
                 });
 
                 await BehaviorFeedbackRepository.save(behaviorFeedback);
-                logger.info("Behavior feedback saved", { userId, feedbackId: behaviorFeedback.id });
+                logger.info("Behavior feedback saved", { userId, modelId, feedbackId: behaviorFeedback.id });
             }
 
+            // Gọi verify-survey API với OCEAN score mới và lưu feedback
+            const verifySurveyResult = await verifySurveyAndSaveFeedback(
+                userId,
+                result.new_ocean_score,
+                "novel_location_ratio"
+            );
+
             // Return the exact format as received from API
-            return res.status(200).json(result);
+            return res.status(200).json({
+                ...result,
+                verifySurvey: verifySurveyResult || null
+            });
 
         } catch (e) {
             if (axios.isAxiosError(e)) {

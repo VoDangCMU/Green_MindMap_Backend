@@ -1,6 +1,7 @@
 import { Request, Response, RequestHandler } from "express";
 import AppDataSource from "../infrastructure/database";
 import { Feedback } from "../entity/feedback";
+import { BehaviorFeedback } from "../entity/behavior_feedback";
 import { getLogger } from "../infrastructure/logger";
 import axios from "axios";
 
@@ -73,11 +74,8 @@ class SurveyVerifyController {
 
             const verifyResult = response.data;
 
-            // Tính toán theo công thức mới:
-            // deviation = expected - actual
-            // engagement = 1 - deviation
-            const calculatedDeviation = verifyResult.expected - verifyResult.actual;
-            const calculatedEngagement = 1 - Math.abs(calculatedDeviation);
+            const calculatedDeviation = Math.abs(verifyResult.expected - verifyResult.actual);
+            const calculatedEngagement = 1 - calculatedDeviation;
 
             logger.info("Survey verified successfully", {
                 modelId: verifyResult.model_id,
@@ -125,13 +123,15 @@ class SurveyVerifyController {
 
     /**
      * Get all feedbacks
-     * GET /api/questions/feedbacks
+     * GET /api/models/feedbacks
      */
     public getFeedbacks: RequestHandler = async (req: Request, res: Response) => {
         const logger = getLogger();
 
         try {
             const feedbackRepository = AppDataSource.getRepository(Feedback);
+            const behaviorFeedbackRepository = AppDataSource.getRepository(BehaviorFeedback);
+
             const feedbacks = await feedbackRepository.find({
                 relations: ['model'],
                 order: { createdAt: 'DESC' }
@@ -139,10 +139,56 @@ class SurveyVerifyController {
 
             logger.info("Feedbacks retrieved successfully", { count: feedbacks.length });
 
+            // Cache behavior feedbacks theo modelId để tránh query nhiều lần
+            const behaviorFeedbackCache = new Map<string, any[]>();
+
             // Format response với engagement được tính từ deviation
-            const formattedFeedbacks = feedbacks.map(feedback => {
+            const formattedFeedbacks = await Promise.all(feedbacks.map(async (feedback) => {
                 // Tính engagement = 1 - |deviation|
                 const engagement = 1 - Math.abs(Number(feedback.deviation));
+
+                // Lấy behavior feedbacks từ cache hoặc query mới
+                let mechanismFeedbacksByMetric: any[] = [];
+
+                if (feedback.modelId) {
+                    if (!behaviorFeedbackCache.has(feedback.modelId)) {
+                        // Lấy tất cả behavior feedbacks của model này
+                        const behaviorFeedbacks = await behaviorFeedbackRepository.find({
+                            where: { modelId: feedback.modelId },
+                            order: { createdAt: 'DESC' }
+                        });
+
+                        // Nhóm behavior feedbacks theo metricType
+                        const groupedByMetric = new Map<string, any[]>();
+
+                        behaviorFeedbacks.forEach(bf => {
+                            if (!bf.mechanismFeedback) return;
+
+                            if (!groupedByMetric.has(bf.metric)) {
+                                groupedByMetric.set(bf.metric, []);
+                            }
+
+                            groupedByMetric.get(bf.metric)!.push({
+                                id: bf.id,
+                                awareness: bf.mechanismFeedback.awareness,
+                                motivation: bf.mechanismFeedback.motivation,
+                                capability: bf.mechanismFeedback.capability,
+                                opportunity: bf.mechanismFeedback.opportunity,
+                                createdAt: bf.createdAt
+                            });
+                        });
+
+                        // Chuyển đổi thành mảng [metricType, mechanismFeedbacks[]]
+                        const result = Array.from(groupedByMetric.entries()).map(([metricType, mechanismFeedbacks]) => ({
+                            metricType,
+                            mechanismFeedbacks
+                        }));
+
+                        behaviorFeedbackCache.set(feedback.modelId, result);
+                    }
+
+                    mechanismFeedbacksByMetric = behaviorFeedbackCache.get(feedback.modelId) || [];
+                }
 
                 return {
                     id: feedback.id,
@@ -156,6 +202,7 @@ class SurveyVerifyController {
                     match: feedback.match,
                     level: feedback.level,
                     feedback: feedback.feedback,
+                    mechanismFeedbacks: mechanismFeedbacksByMetric,
                     createdAt: feedback.createdAt,
                     updatedAt: feedback.updatedAt,
                     model: feedback.model ? {
@@ -168,7 +215,7 @@ class SurveyVerifyController {
                         keywords: feedback.model.keywords
                     } : null
                 };
-            });
+            }));
 
             res.status(200).json(formattedFeedbacks);
         } catch (error) {
