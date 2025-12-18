@@ -35,7 +35,7 @@ export class Segment {
     urban!: boolean;
 
     @ManyToOne(() => Models, {nullable: false, onDelete: 'CASCADE'})
-    @JoinColumn({name: 'model_id'})
+    @JoinColumn({name: 'modelId', referencedColumnName: 'id'})
     model!: Models;
 
     @Column({type: 'uuid'})
@@ -47,4 +47,3 @@ export class Segment {
     @UpdateDateColumn({type: 'timestamp'})
     updatedAt!: Date;
 }
-

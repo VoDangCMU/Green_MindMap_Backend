@@ -51,7 +51,10 @@ export class QuestionSetController {
                 return res.status(404).json({ message: "User not found" });
             }
 
-            const questions = await QuestionsRepository.findBy({id: In(data.questionIds)});
+            const questions = await QuestionsRepository.find({
+                where: {id: In(data.questionIds)},
+                relations: ['model']
+            });
             if (questions.length !== data.questionIds.length) {
                 return res.status(404).json({
                     message: "Some questions not found",
@@ -72,7 +75,8 @@ export class QuestionSetController {
                 description: data.description,
                 owner: user,
                 ownerId: userId,
-                items: questions
+                items: questions,
+                model: questions[0]?.model || undefined
             });
 
             const savedQuestionSet = await QuestionSetsRepository.save(questionSet);
@@ -289,4 +293,3 @@ export class QuestionSetController {
 }
 
 export default new QuestionSetController();
-

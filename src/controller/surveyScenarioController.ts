@@ -9,6 +9,8 @@ import {ScenarioAssignment} from "../entity/scenario_assignments";
 import AppDataSource from "../infrastructure/database";
 import {SimulatedSurvey} from "../entity/simulated_survey";
 import {QuestionSets} from "../entity/question_sets";
+import {Segment} from "../entity/segments";
+import {BigFive, BigFiveType} from "../entity/big_five";
 
 
 const SurveyScenarioParamsSchema = z.object({
@@ -158,7 +160,9 @@ class SurveyScenarioController {
             const scenario = await this.SurveyScenarioRepo.findOne({
                 where: { id: scenarioId },
                 relations: {
-                    questionSet: true,
+                    questionSet: {
+                        model: true
+                    },
                 },
             });
 
@@ -170,6 +174,9 @@ class SurveyScenarioController {
                     success: false,
                     message: "Please attach one question set before simulating"
                 });
+
+            // Get modelId from questionSet
+            const modelId = scenario.questionSet.model?.id;
 
             const { minBirthDate, maxBirthDate } = this.calculateAgeDateRange(
                 scenario.minAge,
@@ -223,7 +230,74 @@ class SurveyScenarioController {
                 const assignmentRepo = manager.getRepository(ScenarioAssignment);
                 const scenarioRepo = manager.getRepository(SurveyScenario);
                 const simulatedRepo = manager.getRepository(SimulatedSurvey);
+                const segmentRepo = manager.getRepository(Segment);
+                const bigFiveRepo = manager.getRepository(BigFive);
 
+                // Group users by location, age range, gender to create segments
+                const segmentMap = new Map<string, { users: User[], location: string, ageRange: string, gender: string }>();
+
+                for (const user of assignedUsers) {
+                    const userLocation = user.location || (scenario.location ? scenario.location[0] : 'unknown');
+                    const userGender = user.gender || 'unknown';
+                    const ageRange = `${scenario.minAge}-${scenario.maxAge}`;
+
+                    const segmentKey = `${userLocation}_${ageRange}_${userGender}`;
+
+                    if (!segmentMap.has(segmentKey)) {
+                        segmentMap.set(segmentKey, {
+                            users: [],
+                            location: userLocation,
+                            ageRange,
+                            gender: userGender
+                        });
+                    }
+                    segmentMap.get(segmentKey)!.users.push(user);
+                }
+
+                // Create segments and BigFive records
+                const createdSegments: Segment[] = [];
+
+                if (modelId) {
+                    for (const [, segmentData] of segmentMap) {
+                        // Check if segment already exists
+                        let segment = await segmentRepo.findOne({
+                            where: {
+                                modelId: modelId,
+                                location: segmentData.location,
+                                ageRange: segmentData.ageRange,
+                                gender: segmentData.gender
+                            }
+                        });
+
+                        if (!segment) {
+                            // Create new segment - set both model relation and modelId
+                            segment = segmentRepo.create({
+                                name: `Segment_${segmentData.location}_${segmentData.ageRange}_${segmentData.gender}`,
+                                description: `Auto-generated segment for ${segmentData.location}, age ${segmentData.ageRange}, ${segmentData.gender}`,
+                                location: segmentData.location,
+                                ageRange: segmentData.ageRange,
+                                gender: segmentData.gender,
+                                modelId: modelId,
+                                urban: false
+                            });
+                            segment = await segmentRepo.save(segment);
+
+                            // Create BigFive record for this segment
+                            const bigFive = bigFiveRepo.create({
+                                openness: 0.5,
+                                conscientiousness: 0.5,
+                                extraversion: 0.5,
+                                agreeableness: 0.5,
+                                neuroticism: 0.5,
+                                type: BigFiveType.SEGMENT,
+                                referenceId: segment.id
+                            });
+                            await bigFiveRepo.save(bigFive);
+                        }
+
+                        createdSegments.push(segment);
+                    }
+                }
 
                 const assignedAssignments = assignedUsers.map((user) =>
                     assignmentRepo.create({
@@ -253,7 +327,7 @@ class SurveyScenarioController {
                     eligibleUsers: eligibleUsersData,
                     triggeredBy: req.user ? ({ id: (req.user as any).userId } as User) : undefined,
                     status: "completed",
-                    notes: `Simulation completed: ${assignedAssignments.length} assigned, ${unassignedAssignments.length} not assigned out of ${totalEligible} eligible users.`,
+                    notes: `Simulation completed: ${assignedAssignments.length} assigned, ${unassignedAssignments.length} not assigned out of ${totalEligible} eligible users. Created ${createdSegments.length} segments.`,
                 });
 
                 const savedSimulation = await simulatedRepo.save(simulation);
@@ -267,12 +341,13 @@ class SurveyScenarioController {
                     simulationId: savedSimulation.id,
                     simulation: savedSimulation,
                     eligibleUsers: eligibleUsersData,
+                    createdSegments: createdSegments.length,
                 };
             });
 
             return res.status(200).json({
                 success: true,
-                message: `Scenario simulated successfully. Assigned to ${result.assignedCount} users, ${result.unassignedCount} eligible but not assigned`,
+                message: `Scenario simulated successfully. Assigned to ${result.assignedCount} users, ${result.unassignedCount} eligible but not assigned. Created ${result.createdSegments} segments.`,
                 data: {
                     scenarioId: scenario.id,
                     simulationId: result.simulationId,
@@ -281,6 +356,7 @@ class SurveyScenarioController {
                     assigned: result.assignedCount,
                     unassigned: result.unassignedCount,
                     totalRecorded: result.totalAssignments,
+                    createdSegments: result.createdSegments,
                     simulation: {
                         status: result.simulation.status,
                         createdAt: result.simulation.createdAt,
