@@ -2,6 +2,7 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    JoinColumn,
     JoinTable,
     ManyToMany,
     ManyToOne,
@@ -12,6 +13,7 @@ import {
 import {User} from "./user";
 import {Questions} from "../entity/questions";
 import {SurveyScenario} from "../entity/survey_scenario";
+import {Models} from "./models";
 
 export const QUESTION_SETS_TABLE_NAME = 'question_sets';
 
@@ -31,6 +33,10 @@ export class QuestionSets {
 
     @Column({type: 'text'})
     ownerId!: string;
+
+    @ManyToOne(() => Models, {nullable: true})
+    @JoinColumn({name: 'model_id'})
+    model?: Models;
 
     @JoinTable({
         name: 'question_set_questions',

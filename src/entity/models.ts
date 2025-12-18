@@ -1,4 +1,5 @@
-import {Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn} from 'typeorm';
+import {Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn} from 'typeorm';
+import {Behavior} from './behaviors';
 
 @Entity('models')
 export class Models {
@@ -11,6 +12,15 @@ export class Models {
     @Column({type: 'text'})
     behavior!: string;
 
+    @Column({type: 'text', nullable: true})
+    keyword?: string;
+
+    @Column({type: 'text', nullable: true})
+    setting?: string;
+
+    @Column({type: 'text', nullable: true})
+    event?: string;
+
     @Column({type: 'text'})
     age!: string;
 
@@ -22,6 +32,13 @@ export class Models {
 
     @Column({type: 'text'})
     keywords!: string;
+
+    @Column({type: 'boolean', default: false})
+    urban!: boolean;
+
+    @ManyToOne(() => Behavior, {nullable: true})
+    @JoinColumn({name: 'behavior_id'})
+    behaviorEntity?: Behavior;
 
     @CreateDateColumn({type: 'timestamp'})
     createdAt!: Date;

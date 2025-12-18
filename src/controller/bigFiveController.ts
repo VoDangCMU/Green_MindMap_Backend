@@ -247,8 +247,10 @@ class BigFiveController {
             });
 
             const formattedList = bigFiveList.map(bigFive => ({
-                user_id: bigFive.user.id,
-                username: bigFive.user.username,
+                user_id: bigFive.user?.id,
+                username: bigFive.user?.username,
+                type: bigFive.type,
+                referenceId: bigFive.referenceId,
                 scores: {
                     O: parseFloat((bigFive.openness * 100).toFixed(2)),
                     C: parseFloat((bigFive.conscientiousness * 100).toFixed(2)),

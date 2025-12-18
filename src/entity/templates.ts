@@ -1,4 +1,4 @@
-import {Column, CreateDateColumn, Entity, OneToMany, OneToOne, PrimaryColumn, UpdateDateColumn, ManyToOne} from "typeorm";
+import {Column, CreateDateColumn, Entity, OneToMany, OneToOne, PrimaryColumn, UpdateDateColumn, ManyToOne, JoinColumn} from "typeorm";
 import {Questions} from "./questions";
 import {TemplateAnswer} from "./template_answers";
 import {Models} from "./models";
@@ -36,6 +36,7 @@ export class Template {
 
 
     @ManyToOne(() => Models, {nullable: true})
+    @JoinColumn({name: 'model_id'})
     model?: Models;
 
     @OneToOne(() => TemplateAnswer, (answer) => answer.template, { cascade: true, onDelete: "CASCADE" })
