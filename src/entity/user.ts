@@ -5,10 +5,13 @@ import {
     CreateDateColumn,
     UpdateDateColumn,
     OneToMany,
-    OneToOne
+    OneToOne,
+    ManyToOne,
+    JoinColumn
 } from 'typeorm';
 import {Locations} from "./locations";
 import {BigFive} from "./big_five";
+import {Segment} from "./segments";
 
 @Entity('users')
 export class User {
@@ -47,6 +50,13 @@ export class User {
 
     @Column({type: 'timestamp'})
     dateOfBirth!: Date;
+
+    @ManyToOne(() => Segment, {nullable: true, onDelete: 'SET NULL'})
+    @JoinColumn({name: 'segmentId'})
+    segment?: Segment;
+
+    @Column({type: 'uuid', nullable: true})
+    segmentId?: string;
 
     @CreateDateColumn({type: 'timestamp'})
     createdAt!: Date;

@@ -160,26 +160,25 @@ async function findOrCreateSegment(
     const SegmentRepository = AppDataSource.getRepository(Segment);
     const BigFiveRepository = AppDataSource.getRepository(BigFive);
 
-    const ageRange = `${Math.floor(userAge / 10) * 10}-${Math.floor(userAge / 10) * 10 + 9}`;
     const normalizedGender = normalizeGender(userGender);
 
-    // Tìm segment đã tồn tại
+    // Tìm segment đã tồn tại với age, gender, location
     let segment = await SegmentRepository.findOne({
         where: {
             modelId: modelId,
             location: userLocation,
-            ageRange: ageRange,
+            age: userAge,
             gender: normalizedGender
         }
     });
 
     if (!segment) {
-        // Tạo segment mới
+        // Tạo segment mới với age thực tế thay vì ageRange
         segment = SegmentRepository.create({
-            name: `Segment_${userLocation}_${ageRange}_${normalizedGender}`,
-            description: `Auto-generated segment for ${userLocation}, age ${ageRange}, ${normalizedGender}`,
+            name: `Segment_${userLocation}_${userAge}_${normalizedGender}`,
+            description: `Auto-generated segment for ${userLocation}, age ${userAge}, ${normalizedGender}`,
             location: userLocation,
-            ageRange: ageRange,
+            age: userAge,
             gender: normalizedGender,
             modelId: modelId,
             urban: false
@@ -201,7 +200,7 @@ async function findOrCreateSegment(
         logger.info("Created new segment with BigFive", {
             segmentId: segment.id,
             modelId,
-            ageRange,
+            ageRange: userAge,
             gender: normalizedGender,
             location: userLocation
         });

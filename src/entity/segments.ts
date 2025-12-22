@@ -4,10 +4,12 @@ import {
     Entity,
     JoinColumn,
     ManyToOne,
+    OneToMany,
     PrimaryGeneratedColumn,
     UpdateDateColumn
 } from "typeorm";
 import {Models} from "./models";
+import {User} from "./user";
 
 export const SEGMENTS_TABLE_NAME = 'segments';
 
@@ -22,8 +24,8 @@ export class Segment {
     @Column({type: 'text', nullable: true})
     description?: string;
 
-    @Column({type: 'varchar', length: 50, nullable: true})
-    ageRange?: string;
+    @Column({type: 'int', nullable: true})
+    age?: number;
 
     @Column({type: 'varchar', length: 20, nullable: true})
     gender?: string;
@@ -40,6 +42,9 @@ export class Segment {
 
     @Column({type: 'uuid'})
     modelId!: string;
+
+    @OneToMany(() => User, user => user.segment)
+    users!: User[];
 
     @CreateDateColumn({type: 'timestamp'})
     createdAt!: Date;

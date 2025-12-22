@@ -331,7 +331,7 @@ class SurveyVerifyController {
                         id: feedback.segment.id,
                         name: feedback.segment.name,
                         location: feedback.segment.location,
-                        ageRange: feedback.segment.ageRange,
+                        age: feedback.segment.age,
                         gender: feedback.segment.gender
                     } : null
                 };

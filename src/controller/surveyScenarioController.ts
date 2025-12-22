@@ -233,21 +233,41 @@ class SurveyScenarioController {
                 const segmentRepo = manager.getRepository(Segment);
                 const bigFiveRepo = manager.getRepository(BigFive);
 
-                // Group users by location, age range, gender to create segments
-                const segmentMap = new Map<string, { users: User[], location: string, ageRange: string, gender: string }>();
+                // Helper function to calculate age
+                const calculateAge = (dateOfBirth: Date): number => {
+                    const today = new Date();
+                    const birthDate = new Date(dateOfBirth);
+                    let age = today.getFullYear() - birthDate.getFullYear();
+                    const monthDiff = today.getMonth() - birthDate.getMonth();
+                    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                        age--;
+                    }
+                    return age;
+                };
+
+                // Helper function to normalize gender
+                const normalizeGender = (gender: string): string => {
+                    const g = gender.toLowerCase().trim();
+                    if (g === 'nam' || g === 'male' || g === 'm') return 'Nam';
+                    if (g === 'nữ' || g === 'nu' || g === 'female' || g === 'f') return 'Nữ';
+                    return gender;
+                };
+
+                // Group users by location, exact age, gender to create segments
+                const segmentMap = new Map<string, { users: User[], location: string, age: number, gender: string }>();
 
                 for (const user of assignedUsers) {
                     const userLocation = user.location || (scenario.location ? scenario.location[0] : 'unknown');
-                    const userGender = user.gender || 'unknown';
-                    const ageRange = `${scenario.minAge}-${scenario.maxAge}`;
+                    const userGender = normalizeGender(user.gender || 'unknown');
+                    const userAge = user.dateOfBirth ? calculateAge(user.dateOfBirth) : 25;
 
-                    const segmentKey = `${userLocation}_${ageRange}_${userGender}`;
+                    const segmentKey = `${userLocation}_${userAge}_${userGender}`;
 
                     if (!segmentMap.has(segmentKey)) {
                         segmentMap.set(segmentKey, {
                             users: [],
                             location: userLocation,
-                            ageRange,
+                            age: userAge,
                             gender: userGender
                         });
                     }
@@ -259,23 +279,23 @@ class SurveyScenarioController {
 
                 if (modelId) {
                     for (const [, segmentData] of segmentMap) {
-                        // Check if segment already exists
+                        // Check if segment already exists with exact age
                         let segment = await segmentRepo.findOne({
                             where: {
                                 modelId: modelId,
                                 location: segmentData.location,
-                                ageRange: segmentData.ageRange,
+                                age: segmentData.age,
                                 gender: segmentData.gender
                             }
                         });
 
                         if (!segment) {
-                            // Create new segment - set both model relation and modelId
+                            // Create new segment with exact age
                             segment = segmentRepo.create({
-                                name: `Segment_${segmentData.location}_${segmentData.ageRange}_${segmentData.gender}`,
-                                description: `Auto-generated segment for ${segmentData.location}, age ${segmentData.ageRange}, ${segmentData.gender}`,
+                                name: `Segment_${segmentData.location}_${segmentData.age}_${segmentData.gender}`,
+                                description: `Auto-generated segment for ${segmentData.location}, age ${segmentData.age}, ${segmentData.gender}`,
                                 location: segmentData.location,
-                                ageRange: segmentData.ageRange,
+                                age: segmentData.age,
                                 gender: segmentData.gender,
                                 modelId: modelId,
                                 urban: false
@@ -293,6 +313,12 @@ class SurveyScenarioController {
                                 referenceId: segment.id
                             });
                             await bigFiveRepo.save(bigFive);
+                        }
+
+                        // Assign segment to all users in this group
+                        for (const user of segmentData.users) {
+                            user.segmentId = segment.id;
+                            await manager.save(user);
                         }
 
                         createdSegments.push(segment);
