@@ -523,38 +523,49 @@ export class QuestionsController {
         const ownerId = req.params.ownerId || (req as any).userId; // Allow getting by ownerId param or current user
 
         try {
-            // Sử dụng find với take: 1 thay vì findOne vì findOne yêu cầu where conditions
-            const latestModels = await ModelsRepository.find({
-                order: { createdAt: 'DESC' },
-                take: 1
+            // Bước 1: Tìm câu hỏi mới nhất của owner để lấy createdAt
+            const latestQuestion = await QuestionsRepository.findOne({
+                where: {
+                    ownerId: ownerId
+                },
+                order: { createdAt: 'DESC' }
             });
 
-            const latestModel = latestModels.length > 0 ? latestModels[0] : null;
-
-            if (!latestModel) {
+            if (!latestQuestion) {
                 return res.status(404).json({
-                    message: "No model found",
+                    message: "No questions found for this owner",
                     data: [],
                     count: 0
                 });
             }
 
-            // Lấy các câu hỏi của owner với model_id mới nhất
-            const questions = await QuestionsRepository.find({
-                where: {
-                    ownerId: ownerId,
-                    model: { id: latestModel.id }
-                },
-                relations: ['template', 'owner', 'questionOptions', 'model'],
-                order: { createdAt: 'DESC' }
-            });
+            // Bước 2: Lấy tất cả các câu hỏi có cùng thời gian createdAt với câu hỏi mới nhất
+            // (các câu hỏi được tạo trong cùng một batch/lượt sẽ có createdAt giống nhau hoặc rất gần nhau)
+            const latestCreatedAt = latestQuestion.createdAt;
+
+            // Lấy tất cả câu hỏi được tạo trong cùng giây với câu hỏi mới nhất
+            const questions = await QuestionsRepository
+                .createQueryBuilder('question')
+                .leftJoinAndSelect('question.template', 'template')
+                .leftJoinAndSelect('question.owner', 'owner')
+                .leftJoinAndSelect('question.questionOptions', 'questionOptions')
+                .leftJoinAndSelect('question.model', 'model')
+                .where('question.ownerId = :ownerId', { ownerId })
+                .andWhere('question.createdAt >= :startTime', {
+                    startTime: new Date(latestCreatedAt.getTime() - 2000) // Trong vòng 2 giây
+                })
+                .andWhere('question.createdAt <= :endTime', {
+                    endTime: new Date(latestCreatedAt.getTime() + 2000) // Trong vòng 2 giây
+                })
+                .orderBy('question.createdAt', 'DESC')
+                .addOrderBy('questionOptions.order', 'ASC')
+                .getMany();
 
             return res.status(200).json({
-                message: `Questions for owner retrieved successfully`,
+                message: `Latest batch of questions for owner retrieved successfully`,
                 data: questions,
                 count: questions.length,
-                modelId: latestModel.id,
-                modelCreatedAt: latestModel.createdAt
+                batchCreatedAt: latestCreatedAt
             });
         } catch (e) {
             logger.error('Error fetching questions by owner', e as Error);
