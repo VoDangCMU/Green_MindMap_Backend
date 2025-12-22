@@ -232,27 +232,140 @@ class UserAnswersController {
                             relations: ['scenario', 'scenario.questionSet', 'scenario.questionSet.model']
                         });
 
+                        logger.info('User assignments found', {
+                            userId,
+                            assignmentCount: userAssignments.length,
+                            userLocation: user.location,
+                            userGender: user.gender,
+                            userAge
+                        });
+
+                        if (userAssignments.length === 0) {
+                            logger.warn('No assignments found for user', { userId });
+                        }
+
                         for (const assignment of userAssignments) {
                             const scenarioModel = assignment.scenario?.questionSet?.model;
-                            if (!scenarioModel) continue;
+                            if (!scenarioModel) {
+                                logger.warn('No model found for assignment', { assignmentId: assignment.id });
+                                continue;
+                            }
 
-                            // Find segment matching user's attributes and model
-                            const segment = await segmentRepo.findOne({
+                            logger.info('Processing assignment', {
+                                assignmentId: assignment.id,
+                                scenarioId: assignment.scenario?.id,
+                                modelId: scenarioModel.id,
+                                modelName: scenarioModel.behavior
+                            });
+
+                            // Find ALL segments for this model first
+                            const allSegmentsForModel = await segmentRepo.find({
                                 where: {
-                                    modelId: scenarioModel.id,
-                                    location: user.location || undefined,
-                                    gender: user.gender || undefined
+                                    modelId: scenarioModel.id
                                 }
                             });
 
-                            if (!segment) continue;
+                            logger.info('Found segments for model', {
+                                modelId: scenarioModel.id,
+                                totalSegments: allSegmentsForModel.length,
+                                segments: allSegmentsForModel.map(s => ({
+                                    id: s.id,
+                                    name: s.name,
+                                    location: s.location,
+                                    gender: s.gender,
+                                    age: s.age
+                                }))
+                            });
 
-                            // Call verify-survey API for this segment
-                            try {
-                                const verifySurveyResponse = await fetch(`${AI_BASE_URL}/verify-survey`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
+                            // Filter segments that match user's attributes (more flexible matching)
+                            const matchingSegments = allSegmentsForModel.filter(segment => {
+                                // Normalize strings for comparison
+                                const normalizeString = (str: string | undefined | null) => {
+                                    if (!str) return '';
+                                    return str.toLowerCase()
+                                        .normalize('NFD')
+                                        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+                                        .replace(/\s+/g, '_') // Replace spaces with underscore
+                                        .trim();
+                                };
+
+                                const userLocationNorm = normalizeString(user.location);
+                                const segmentLocationNorm = normalizeString(segment.location);
+                                const userGenderNorm = normalizeString(user.gender);
+                                const segmentGenderNorm = normalizeString(segment.gender);
+
+                                // Location match: segment location is not set OR matches user location
+                                const locationMatch = !segment.location ||
+                                                     segmentLocationNorm === userLocationNorm ||
+                                                     userLocationNorm.includes(segmentLocationNorm) ||
+                                                     segmentLocationNorm.includes(userLocationNorm);
+
+                                // Gender match: segment gender is not set OR matches user gender
+                                const genderMatch = !segment.gender ||
+                                                   segmentGenderNorm === userGenderNorm;
+
+                                // Age match: segment age is not set OR within 5 years range
+                                const ageMatch = !segment.age ||
+                                               Math.abs(segment.age - userAge) <= 5;
+
+                                const matches = locationMatch && genderMatch && ageMatch;
+
+                                logger.info('Segment matching check', {
+                                    segmentId: segment.id,
+                                    segmentName: segment.name,
+                                    locationMatch,
+                                    genderMatch,
+                                    ageMatch,
+                                    finalMatch: matches,
+                                    details: {
+                                        segment: { location: segment.location, gender: segment.gender, age: segment.age },
+                                        user: { location: user.location, gender: user.gender, age: userAge },
+                                        normalized: {
+                                            segmentLocation: segmentLocationNorm,
+                                            userLocation: userLocationNorm,
+                                            segmentGender: segmentGenderNorm,
+                                            userGender: userGenderNorm
+                                        }
+                                    }
+                                });
+
+                                return matches;
+                            });
+
+                            logger.info('Matching segments after filtering', {
+                                matchingCount: matchingSegments.length,
+                                matchingSegments: matchingSegments.map(s => ({
+                                    id: s.id,
+                                    name: s.name,
+                                    location: s.location,
+                                    gender: s.gender,
+                                    age: s.age
+                                }))
+                            });
+
+                            if (matchingSegments.length === 0) {
+                                logger.warn('No matching segments found for user', {
+                                    userId,
+                                    modelId: scenarioModel.id,
+                                    userLocation: user.location,
+                                    userGender: user.gender,
+                                    userAge,
+                                    availableSegments: allSegmentsForModel.map(s => s.name)
+                                });
+                                continue;
+                            }
+
+                            // Process each matching segment
+                            for (const segment of matchingSegments) {
+                                logger.info('Processing segment', {
+                                    segmentId: segment.id,
+                                    segmentName: segment.name,
+                                    userId
+                                });
+
+                                // Call verify-survey API for this segment
+                                try {
+                                    const verifySurveyPayload = {
                                         model: {
                                             id: scenarioModel.id,
                                             ocean: scenarioModel.ocean,
@@ -270,111 +383,196 @@ class UserAnswersController {
                                             A: userBigFive.agreeableness,
                                             N: userBigFive.neuroticism
                                         }
-                                    })
-                                });
+                                    };
 
-                                if (verifySurveyResponse.ok) {
-                                    const verifyResult = await verifySurveyResponse.json();
-                                    logger.info('Survey verified for segment', { userId, segmentId: segment.id, result: verifyResult });
-
-                                    // Save feedback with segmentId instead of just modelId
-                                    const feedback = feedbackRepo.create({
-                                        modelId: scenarioModel.id,
+                                    logger.info('Calling verify-survey API', {
                                         segmentId: segment.id,
-                                        user_id: userId,
-                                        trait_checked: verifyResult.trait_checked,
-                                        expected: verifyResult.expected,
-                                        actual: verifyResult.actual,
-                                        deviation: verifyResult.deviation,
-                                        match: verifyResult.match,
-                                        level: verifyResult.level,
-                                        feedback: verifyResult.feedback
+                                        payload: verifySurveyPayload
                                     });
-                                    await feedbackRepo.save(feedback);
+
+                                    const verifySurveyResponse = await fetch(`${AI_BASE_URL}/verify-survey`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(verifySurveyPayload)
+                                    });
+
+                                    if (verifySurveyResponse.ok) {
+                                        const verifyResult = await verifySurveyResponse.json();
+                                        logger.info('Survey verified for segment', {
+                                            userId,
+                                            segmentId: segment.id,
+                                            segmentName: segment.name,
+                                            result: verifyResult
+                                        });
+
+                                        // Save feedback with segmentId
+                                        const feedback = feedbackRepo.create({
+                                            modelId: scenarioModel.id,
+                                            segmentId: segment.id,
+                                            user_id: userId,
+                                            trait_checked: verifyResult.trait_checked,
+                                            expected: verifyResult.expected,
+                                            actual: verifyResult.actual,
+                                            deviation: verifyResult.deviation,
+                                            match: verifyResult.match,
+                                            level: verifyResult.level,
+                                            feedback: verifyResult.feedback
+                                        });
+
+                                        const savedFeedback = await feedbackRepo.save(feedback);
+
+                                        logger.info('✅ Feedback saved successfully', {
+                                            feedbackId: savedFeedback.id,
+                                            segmentId: segment.id,
+                                            segmentName: segment.name,
+                                            userId,
+                                            traitChecked: verifyResult.trait_checked,
+                                            match: verifyResult.match
+                                        });
+                                    } else {
+                                        const errorText = await verifySurveyResponse.text();
+                                        logger.error('❌ verify-survey API returned error', undefined, {
+                                            status: verifySurveyResponse.status,
+                                            statusText: verifySurveyResponse.statusText,
+                                            errorText,
+                                            segmentId: segment.id,
+                                            segmentName: segment.name
+                                        });
+                                    }
+                                } catch (verifyErr) {
+                                    logger.error('❌ Error calling verify-survey API for segment', verifyErr as Error, {
+                                        segmentId: segment.id,
+                                        segmentName: segment.name,
+                                        userId
+                                    });
                                 }
-                            } catch (verifyErr) {
-                                logger.error('Error calling verify-survey API for segment', verifyErr as Error);
-                            }
 
-                            // Get all users in this segment
-                            const segmentUsers = await userRepo.find({
-                                where: {
-                                    location: segment.location || undefined,
-                                    gender: segment.gender || undefined
-                                }
-                            });
+                                // Get all users in this segment (with flexible matching)
+                                const segmentUsers = await userRepo
+                                    .createQueryBuilder('user')
+                                    .where('1=1')
+                                    .andWhere(segment.location ?
+                                        'LOWER(user.location) LIKE LOWER(:location)' : '1=1',
+                                        { location: `%${segment.location}%` })
+                                    .andWhere(segment.gender ?
+                                        'LOWER(user.gender) = LOWER(:gender)' : '1=1',
+                                        { gender: segment.gender })
+                                    .getMany();
 
-                            // Get BigFive scores for all segment users
-                            const usersWithScores: { user_id: string; scores: { O: number; C: number; E: number; A: number; N: number } }[] = [];
-
-                            for (const segUser of segmentUsers) {
-                                const segUserBigFive = await bigFiveRepo.findOne({
-                                    where: { referenceId: segUser.id, type: BigFiveType.USER }
+                                logger.info('Found segment users for group calculation', {
+                                    segmentId: segment.id,
+                                    segmentName: segment.name,
+                                    userCount: segmentUsers.length
                                 });
 
-                                if (segUserBigFive) {
-                                    usersWithScores.push({
-                                        user_id: segUser.id,
-                                        scores: {
-                                            O: segUserBigFive.openness * 100,
-                                            C: segUserBigFive.conscientiousness * 100,
-                                            E: segUserBigFive.extraversion * 100,
-                                            A: segUserBigFive.agreeableness * 100,
-                                            N: segUserBigFive.neuroticism * 100
+                                // Get BigFive scores for all segment users
+                                const usersWithScores: { user_id: string; scores: { O: number; C: number; E: number; A: number; N: number } }[] = [];
+
+                                for (const segUser of segmentUsers) {
+                                    const segUserBigFive = await bigFiveRepo.findOne({
+                                        where: { referenceId: segUser.id, type: BigFiveType.USER }
+                                    });
+
+                                    if (segUserBigFive) {
+                                        usersWithScores.push({
+                                            user_id: segUser.id,
+                                            scores: {
+                                                O: segUserBigFive.openness * 100,
+                                                C: segUserBigFive.conscientiousness * 100,
+                                                E: segUserBigFive.extraversion * 100,
+                                                A: segUserBigFive.agreeableness * 100,
+                                                N: segUserBigFive.neuroticism * 100
+                                            }
+                                        });
+                                    }
+                                }
+
+                                if (usersWithScores.length === 0) {
+                                    logger.warn('No users with BigFive scores found for segment', {
+                                        segmentId: segment.id,
+                                        segmentName: segment.name
+                                    });
+                                    continue;
+                                }
+
+                                // Call calculate_group_ocean API
+                                try {
+                                    const groupOceanPayload = {
+                                        target_segment: {
+                                            location_detail: segment.location || user.location,
+                                            age_detail: segment.age || userAge,
+                                            gender_detail: segment.gender || user.gender
+                                        },
+                                        users: usersWithScores
+                                    };
+
+                                    logger.info('Calling calculate_group_ocean API', {
+                                        segmentId: segment.id,
+                                        userCount: usersWithScores.length
+                                    });
+
+                                    const groupOceanResponse = await fetch(`${AI_BASE_URL}/calculate_group_ocean`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(groupOceanPayload)
+                                    });
+
+                                    if (groupOceanResponse.ok) {
+                                        const groupResult = await groupOceanResponse.json();
+                                        const groupScores = groupResult.group_ocean_score;
+                                        logger.info('Group OCEAN calculated', {
+                                            segmentId: segment.id,
+                                            segmentName: segment.name,
+                                            scores: groupScores
+                                        });
+
+                                        // Update segment's BigFive
+                                        let segmentBigFive = await bigFiveRepo.findOne({
+                                            where: { referenceId: segment.id, type: BigFiveType.SEGMENT }
+                                        });
+
+                                        if (segmentBigFive) {
+                                            segmentBigFive.openness = groupScores.O / 100;
+                                            segmentBigFive.conscientiousness = groupScores.C / 100;
+                                            segmentBigFive.extraversion = groupScores.E / 100;
+                                            segmentBigFive.agreeableness = groupScores.A / 100;
+                                            segmentBigFive.neuroticism = groupScores.N / 100;
+                                            await bigFiveRepo.save(segmentBigFive);
+                                        } else {
+                                            segmentBigFive = bigFiveRepo.create({
+                                                openness: groupScores.O / 100,
+                                                conscientiousness: groupScores.C / 100,
+                                                extraversion: groupScores.E / 100,
+                                                agreeableness: groupScores.A / 100,
+                                                neuroticism: groupScores.N / 100,
+                                                type: BigFiveType.SEGMENT,
+                                                referenceId: segment.id
+                                            });
+                                            await bigFiveRepo.save(segmentBigFive);
                                         }
+                                        logger.info('Segment BigFive updated', {
+                                            segmentId: segment.id,
+                                            segmentName: segment.name
+                                        });
+                                    } else {
+                                        const errorText = await groupOceanResponse.text();
+                                        logger.error('calculate_group_ocean API returned error', undefined, {
+                                            status: groupOceanResponse.status,
+                                            errorText,
+                                            segmentId: segment.id,
+                                            segmentName: segment.name
+                                        });
+                                    }
+                                } catch (groupOceanErr) {
+                                    logger.error('Error calling calculate_group_ocean API', groupOceanErr as Error, {
+                                        segmentId: segment.id,
+                                        segmentName: segment.name
                                     });
-                                }
-                            }
-
-                            if (usersWithScores.length === 0) continue;
-
-                            // Call calculate_group_ocean API
-                            const groupOceanResponse = await fetch(`${AI_BASE_URL}/calculate_group_ocean`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    target_segment: {
-                                        location_detail: segment.location || user.location,
-                                        age_detail: userAge,
-                                        gender_detail: segment.gender || user.gender
-                                    },
-                                    users: usersWithScores
-                                })
-                            });
-
-                            if (groupOceanResponse.ok) {
-                                const groupResult = await groupOceanResponse.json();
-                                const groupScores = groupResult.group_ocean_score;
-                                logger.info('Group OCEAN calculated', { segmentId: segment.id, scores: groupScores });
-
-                                // Update segment's BigFive
-                                let segmentBigFive = await bigFiveRepo.findOne({
-                                    where: { referenceId: segment.id, type: BigFiveType.SEGMENT }
-                                });
-
-                                if (segmentBigFive) {
-                                    segmentBigFive.openness = groupScores.O / 100;
-                                    segmentBigFive.conscientiousness = groupScores.C / 100;
-                                    segmentBigFive.extraversion = groupScores.E / 100;
-                                    segmentBigFive.agreeableness = groupScores.A / 100;
-                                    segmentBigFive.neuroticism = groupScores.N / 100;
-                                    await bigFiveRepo.save(segmentBigFive);
-                                } else {
-                                    segmentBigFive = bigFiveRepo.create({
-                                        openness: groupScores.O / 100,
-                                        conscientiousness: groupScores.C / 100,
-                                        extraversion: groupScores.E / 100,
-                                        agreeableness: groupScores.A / 100,
-                                        neuroticism: groupScores.N / 100,
-                                        type: BigFiveType.SEGMENT,
-                                        referenceId: segment.id
-                                    });
-                                    await bigFiveRepo.save(segmentBigFive);
                                 }
                             }
                         }
                     } catch (groupErr) {
-                        logger.error('Error calculating group OCEAN', groupErr as Error);
+                        logger.error('Error in segment processing', groupErr as Error);
                     }
                 }
             } catch (oceanErr) {
