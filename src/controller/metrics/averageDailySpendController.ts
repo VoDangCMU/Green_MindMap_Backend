@@ -25,6 +25,22 @@ const DEFAULTS = {
     direction: "down"
 };
 
+const AnalyzeRequestSchema = z.object({
+    daily_total: z.number(),
+    base_avg: z.number(),
+    weight: z.number(),
+    direction: z.string(),
+    sigma_r: z.number(),
+    alpha: z.number(),
+    ocean_score: z.object({
+        O: z.number(),
+        C: z.number(),
+        E: z.number(),
+        A: z.number(),
+        N: z.number(),
+    })
+});
+
 const AnalyzeResponseSchema = z.object({
     metric: z.string(),
     vt: z.number(),
@@ -133,7 +149,224 @@ class AverageDailySpendController {
                 return res.status(401).json({ error: "Unauthorized" });
             }
 
-            logger.info("updateAvgSpend called", { userId });
+            logger.info("updateAvgSpend called", { userId, body: req.body });
+
+            // Validate request body
+            const parsed = AnalyzeRequestSchema.safeParse(req.body);
+            if (!parsed.success) {
+                logger.warn("Invalid request parameters", {
+                    errors: parsed.error.errors
+                });
+                return res.status(400).json({
+                    error: "Invalid parameters",
+                    details: parsed.error.errors
+                });
+            }
+
+            const requestData = parsed.data;
+
+            // Get user
+            const user = await UserRepo.findOne({
+                where: { id: userId },
+                relations: {
+                    bigFive: true
+                }
+            });
+
+            if (!user) {
+                logger.warn("User not found", { userId });
+                return res.status(404).json({
+                    error: "User not found"
+                });
+            }
+
+            // Kiểm tra big_five
+            if (!user.bigFive) {
+                logger.warn("User does not have big five data", { userId });
+                return res.status(404).json({
+                    error: "User does not have big five data"
+                });
+            }
+
+            // Lưu previous OCEAN score trước khi cập nhật
+            const previousOceanScore = {
+                O: user.bigFive.openness,
+                C: user.bigFive.conscientiousness,
+                E: user.bigFive.extraversion,
+                A: user.bigFive.agreeableness,
+                N: user.bigFive.neuroticism
+            };
+
+            // Call external API with the exact request format
+            logger.info("Calling avg daily spend API", {
+                userId,
+                payload: requestData
+            });
+
+            const apiResponse = await axios.post(API_URL, requestData, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (apiResponse.status !== 200) {
+                logger.error("API call failed", undefined, {
+                    userId,
+                    status: apiResponse.status,
+                    data: apiResponse.data
+                });
+                return res.status(apiResponse.status).json({
+                    error: "Avg daily spend calculation failed",
+                    details: apiResponse.data
+                });
+            }
+
+            const apiResult = AnalyzeResponseSchema.safeParse(apiResponse.data);
+
+            if (!apiResult.success) {
+                logger.error("Invalid API response", undefined, {
+                    userId,
+                    errors: apiResult.error.errors
+                });
+                return res.status(500).json({
+                    error: "Invalid response from API",
+                    details: apiResult.error.errors
+                });
+            }
+
+            const result = apiResult.data;
+
+            // Update or create BigFive
+            let bigFive = user.bigFive;
+            if (!bigFive) {
+                bigFive = new BigFive();
+                bigFive.user = user;
+            }
+
+            bigFive.openness = result.new_ocean_score.O;
+            bigFive.conscientiousness = result.new_ocean_score.C;
+            bigFive.extraversion = result.new_ocean_score.E;
+            bigFive.agreeableness = result.new_ocean_score.A;
+            bigFive.neuroticism = result.new_ocean_score.N;
+
+            await BigFiveRepo.save(bigFive);
+
+            logger.info("BigFive updated", {
+                userId,
+                newScores: result.new_ocean_score
+            });
+
+            // Update or create Metrics record
+            let metricRecord = await MetricsRepo.findOne({
+                where: {
+                    userId: userId,
+                    type: "avg_daily_spend"
+                }
+            });
+
+            if (metricRecord) {
+                metricRecord.vt = result.vt;
+                metricRecord.bt = result.bt;
+                metricRecord.r = result.r;
+                metricRecord.n = result.n;
+                metricRecord.contrib = result.contrib;
+                metricRecord.metadata = {
+                    daily_total: requestData.daily_total,
+                    base_avg: requestData.base_avg,
+                    direction: requestData.direction,
+                    mechanismFeedback: result.mechanismFeedback,
+                    reason: result.reason
+                };
+            } else {
+                metricRecord = MetricsRepo.create({
+                    userId: userId,
+                    type: "avg_daily_spend",
+                    vt: result.vt,
+                    bt: result.bt,
+                    r: result.r,
+                    n: result.n,
+                    contrib: result.contrib,
+                    metadata: {
+                        daily_total: requestData.daily_total,
+                        base_avg: requestData.base_avg,
+                        direction: requestData.direction,
+                        mechanismFeedback: result.mechanismFeedback,
+                        reason: result.reason
+                    }
+                });
+            }
+
+            await MetricsRepo.save(metricRecord);
+
+            logger.info("Metrics updated", {
+                userId,
+                type: "avg_daily_spend"
+            });
+
+            // Save feedback to behavior_feedbacks table
+            if (result.mechanismFeedback) {
+                const behaviorFeedback = BehaviorFeedbackRepo.create({
+                    userId: userId,
+                    metric: "avg_daily_spend",
+                    vt: result.vt,
+                    bt: result.bt,
+                    r: result.r,
+                    n: result.n,
+                    contrib: result.contrib,
+                    mechanismFeedback: result.mechanismFeedback,
+                    reason: result.reason,
+                    oceanScore: result.new_ocean_score
+                });
+
+                await BehaviorFeedbackRepo.save(behaviorFeedback);
+                logger.info("Behavior feedback saved", { userId, feedbackId: behaviorFeedback.id });
+            }
+
+            // Gọi verify-survey API với OCEAN score mới và lưu feedback
+            const verifySurveyResult = await verifySurveyAndSaveFeedback(
+                userId,
+                result.new_ocean_score,
+                "avg_daily_spend",
+                previousOceanScore
+            );
+
+            // Return the exact format as received from API
+            return res.status(200).json({
+                ...result,
+                verifySurvey: verifySurveyResult || null
+            });
+
+        } catch (e) {
+            if (axios.isAxiosError(e)) {
+                logger.error("API call failed", e, {
+                    userId: req.user?.userId,
+                    response: e.response?.data
+                });
+                return res.status(e.response?.status || 500).json({
+                    error: "Failed to calculate avg daily spend",
+                    details: e.response?.data || e.message
+                });
+            }
+
+            logger.error("Failed to update avg daily spend", e as Error, {
+                userId: req.user?.userId
+            });
+            return res.status(500).json({
+                error: "Failed to update avg daily spend",
+                details: e instanceof Error ? e.message : String(e),
+            });
+        }
+    };
+
+    public updateAvgSpendFromHistory = async (req: Request, res: Response) => {
+        try {
+            const userId = req.user?.userId;
+            if (!userId) {
+                logger.warn("Unauthorized access to updateAvgSpendFromHistory");
+                return res.status(401).json({ error: "Unauthorized" });
+            }
+
+            logger.info("updateAvgSpendFromHistory called", { userId });
 
             // Get user
             const user = await UserRepo.findOne({
