@@ -18,8 +18,11 @@ const BehaviorFeedbackRepository = AppDataSource.getRepository(BehaviorFeedback)
 const API_URL = "https://ai-greenmind.khoav4.com/list_adherence";
 
 const TodoItemSchema = z.object({
-    task: z.string(),
-    done: z.boolean()
+    id: z.string().optional(),
+    title: z.string(),
+    completed: z.boolean(),
+    children: z.array(z.any()).optional(),
+    parent: z.string().optional()
 });
 
 const ListAdherenceRequestSchema = z.object({
@@ -164,13 +167,29 @@ class ListAdherenceController {
 
             const requestData = parsed.data;
 
+            // Transform todos to match AI API format (task/done instead of title/completed)
+            const transformedTodos = requestData.todos.map(todo => ({
+                task: todo.title,
+                done: todo.completed
+            }));
+
+            const apiPayload = {
+                todos: transformedTodos,
+                base_likert: requestData.base_likert,
+                weight: requestData.weight,
+                direction: requestData.direction,
+                sigma_r: requestData.sigma_r,
+                alpha: requestData.alpha,
+                ocean_score: requestData.ocean_score
+            };
+
             // Call external API with the exact request format
             logger.info("Calling list adherence API", {
                 userId,
-                payload: requestData
+                payload: apiPayload
             });
 
-            const apiResponse = await axios.post(API_URL, requestData, {
+            const apiResponse = await axios.post(API_URL, apiPayload, {
                 headers: {
                     'Content-Type': 'application/json'
                 }
