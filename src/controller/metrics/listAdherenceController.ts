@@ -306,7 +306,8 @@ class ListAdherenceController {
                     n: result.n,
                     contrib: result.contrib,
                     mechanismFeedback: result.mechanismFeedback,
-                    reason: result.reason
+                    reason: result.reason,
+                    oceanScore: result.new_ocean_score
                 });
 
                 await BehaviorFeedbackRepository.save(behaviorFeedback);

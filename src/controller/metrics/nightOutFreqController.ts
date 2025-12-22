@@ -255,7 +255,8 @@ class NightOutFreqController {
                     n: aiData.n,
                     contrib: aiData.contrib,
                     mechanismFeedback: aiData.mechanismFeedback,
-                    reason: aiData.reason
+                    reason: aiData.reason,
+                    oceanScore: aiData.new_ocean_score
                 });
 
                 await BehaviorFeedbackRepository.save(behaviorFeedback);
