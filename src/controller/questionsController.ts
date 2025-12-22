@@ -173,6 +173,9 @@ export class QuestionsController {
             const savedQuestions = [];
             const errors: string[] = [];
 
+            // Tạo một timestamp chung cho tất cả câu hỏi trong batch này
+            const batchCreatedAt = new Date();
+
             // Validate default model and template if provided
             let defaultModel = null;
             if (data.defaultModelId) {
@@ -257,7 +260,7 @@ export class QuestionsController {
                             }
                         }
 
-                        // Create new question with all fields including ownerId
+                        // Create new question with all fields including ownerId and createdAt
                         const newQuestion = QuestionsRepository.create({
                             question: questionText,
                             templateId: templateIdToUse,
@@ -267,6 +270,8 @@ export class QuestionsController {
                             trait: trait,
                             model: model || undefined,
                             ownerId: userId, // Save the user ID of the creator
+                            createdAt: batchCreatedAt, // Gán cùng createdAt cho tất cả câu hỏi
+                            updatedAt: batchCreatedAt
                         });
 
                         const savedQuestion = await QuestionsRepository.save(newQuestion);
@@ -311,7 +316,7 @@ export class QuestionsController {
                         });
 
                         savedQuestions.push(questionWithOptions);
-                        logger.info(`Question created by user ${userId} with trait: ${trait}, modelId: ${model?.id || 'none'}, templateId: ${templateIdToUse}`);
+                        logger.info(`Question created by user ${userId} with trait: ${trait}, modelId: ${model?.id || 'none'}, templateId: ${templateIdToUse}, createdAt: ${batchCreatedAt.toISOString()}`);
                     } else {
                         // Exact duplicate question exists, skip
                         savedQuestions.push(existedQuestion);
@@ -334,7 +339,8 @@ export class QuestionsController {
                 message: `${savedQuestions.length} questions processed successfully`,
                 count: savedQuestions.length,
                 data: savedQuestions,
-                createdBy: userId
+                createdBy: userId,
+                batchCreatedAt: batchCreatedAt.toISOString()
             };
 
             if (errors.length > 0) {
@@ -520,7 +526,11 @@ export class QuestionsController {
 
     // Get questions by owner
     public async GetQuestionsByOwner(req: Request, res: Response) {
-        const ownerId = req.params.ownerId || (req as any).userId; // Allow getting by ownerId param or current user
+        const ownerId = req.params.ownerId || req.user?.userId; // Allow getting by ownerId param or current user
+
+        if (!ownerId) {
+            return res.status(401).json({ message: "Unauthorized - User ID not found" });
+        }
 
         try {
             // Bước 1: Tìm câu hỏi mới nhất của owner để lấy createdAt
@@ -539,11 +549,10 @@ export class QuestionsController {
                 });
             }
 
-            // Bước 2: Lấy tất cả các câu hỏi có cùng thời gian createdAt với câu hỏi mới nhất
-            // (các câu hỏi được tạo trong cùng một batch/lượt sẽ có createdAt giống nhau hoặc rất gần nhau)
+            // Bước 2: Lấy tất cả các câu hỏi có cùng thời gian createdAt chính xác với câu hỏi mới nhất
             const latestCreatedAt = latestQuestion.createdAt;
 
-            // Lấy tất cả câu hỏi được tạo trong cùng giây với câu hỏi mới nhất
+            // Lấy tất cả câu hỏi có cùng createdAt với câu hỏi mới nhất
             const questions = await QuestionsRepository
                 .createQueryBuilder('question')
                 .leftJoinAndSelect('question.template', 'template')
@@ -551,11 +560,8 @@ export class QuestionsController {
                 .leftJoinAndSelect('question.questionOptions', 'questionOptions')
                 .leftJoinAndSelect('question.model', 'model')
                 .where('question.ownerId = :ownerId', { ownerId })
-                .andWhere('question.createdAt >= :startTime', {
-                    startTime: new Date(latestCreatedAt.getTime() - 2000) // Trong vòng 2 giây
-                })
-                .andWhere('question.createdAt <= :endTime', {
-                    endTime: new Date(latestCreatedAt.getTime() + 2000) // Trong vòng 2 giây
+                .andWhere('question.createdAt = :createdAt', {
+                    createdAt: latestCreatedAt
                 })
                 .orderBy('question.createdAt', 'DESC')
                 .addOrderBy('questionOptions.order', 'ASC')
