@@ -23,6 +23,7 @@ export class Questions {
     @ManyToOne(() => Template, {onDelete: 'CASCADE'})
     template!: Template;
 
+    //add something
     @Column({type: 'text'})
     question!: string;
 
