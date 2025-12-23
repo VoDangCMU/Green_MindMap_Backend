@@ -485,12 +485,31 @@ class UserController {
 
     public GetAllUsers: RequestHandler = async (req: Request, res: Response) => {
         try {
-            const users = await AppDataSource.getRepository(User).find({
-                relations: {
-                    bigFive: true,
-                }
-            })
-            return res.status(200).json({ message: "Get all users successfully" , data: users });
+            const userRepository = AppDataSource.getRepository(User);
+            const bigFiveRepository = AppDataSource.getRepository(BigFive);
+
+            const users = await userRepository.find();
+
+            // Manually fetch BigFive for each user using referenceId and type
+            const usersWithBigFive = await Promise.all(
+                users.map(async (user) => {
+                    const bigFive = await bigFiveRepository.findOne({
+                        where: {
+                            referenceId: user.id,
+                            type: BigFiveType.USER
+                        }
+                    });
+                    return {
+                        ...user,
+                        bigFive
+                    };
+                })
+            );
+
+            return res.status(200).json({
+                message: "Get all users successfully",
+                data: usersWithBigFive
+            });
         } catch (e: any) {
             return res.status(500).json({ message: "Internal server error", error: e.message });
         }
