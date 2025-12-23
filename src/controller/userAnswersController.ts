@@ -230,14 +230,15 @@ class UserAnswersController {
                         const normalizeGender = (gender: string | undefined | null): string => {
                             if (!gender) return '';
                             const normalized = gender.toLowerCase().trim();
-                            // Map English to Vietnamese and vice versa
+                            // Normalize all to male/female
                             const genderMap: Record<string, string> = {
-                                'male': 'nam',
-                                'female': 'nu',
-                                'nữ': 'nu',
-                                'nam': 'nam',
-                                'm': 'nam',
-                                'f': 'nu'
+                                'male': 'male',
+                                'female': 'female',
+                                'nữ': 'female',
+                                'nam': 'male',
+                                'm': 'male',
+                                'f': 'female',
+                                'nu': 'female'
                             };
                             return genderMap[normalized] || normalized;
                         };
@@ -258,7 +259,7 @@ class UserAnswersController {
                                 .where('segment.modelId = :modelId', { modelId: scenarioModel.id })
                                 .getMany();
 
-                            // Filter segments by matching location and gender
+                            // Filter segments by matching location, gender AND AGE (EXACT MATCH)
                             const matchingSegments = segment.filter(seg => {
                                 const locationMatch = !seg.location ||
                                     !user.location ||
@@ -268,8 +269,11 @@ class UserAnswersController {
                                 const genderMatch = !seg.gender ||
                                     !user.gender ||
                                     normalizeGender(seg.gender) === normalizeGender(user.gender);
+                                
+                                // EXACT AGE MATCH - No tolerance
+                                const ageMatch = !seg.age || seg.age === userAge;
 
-                                return locationMatch && genderMatch;
+                                return locationMatch && genderMatch && ageMatch;
                             });
 
                             for (const matchedSegment of matchingSegments) {

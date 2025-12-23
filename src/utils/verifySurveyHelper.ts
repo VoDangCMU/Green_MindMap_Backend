@@ -49,8 +49,8 @@ function calculateAge(dateOfBirth: Date): number {
  */
 function normalizeGender(gender: string): string {
     const g = gender.toLowerCase().trim();
-    if (g === 'nam' || g === 'male' || g === 'm') return 'Nam';
-    if (g === 'nữ' || g === 'nu' || g === 'female' || g === 'f') return 'Nữ';
+    if (g === 'nam' || g === 'male' || g === 'm') return 'male';
+    if (g === 'nữ' || g === 'nu' || g === 'female' || g === 'f') return 'female';
     return gender;
 }
 
@@ -116,10 +116,10 @@ async function findMatchingModelByOceanTrait(
         if (model.age) {
             const modelAge = parseInt(model.age, 10);
             if (!isNaN(modelAge)) {
-                const ageDiff = Math.abs(userAge - modelAge);
-                if (ageDiff <= 2) score += 3;
-                else if (ageDiff <= 5) score += 2;
-                else if (ageDiff <= 10) score += 1;
+                // EXACT AGE MATCH ONLY - No tolerance
+                if (modelAge === userAge) {
+                    score += 10; // High priority for exact match
+                }
             }
         }
 
@@ -175,7 +175,7 @@ async function findOrCreateSegment(
     if (!segment) {
         // Tạo segment mới với age thực tế thay vì ageRange
         segment = SegmentRepository.create({
-            name: `Segment_${userLocation}_${userAge}_${normalizedGender}`,
+            name: `${userLocation}_${userAge}_${normalizedGender}`,
             description: `Auto-generated segment for ${userLocation}, age ${userAge}, ${normalizedGender}`,
             location: userLocation,
             age: userAge,

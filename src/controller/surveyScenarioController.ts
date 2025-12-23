@@ -248,8 +248,8 @@ class SurveyScenarioController {
                 // Helper function to normalize gender
                 const normalizeGender = (gender: string): string => {
                     const g = gender.toLowerCase().trim();
-                    if (g === 'nam' || g === 'male' || g === 'm') return 'Nam';
-                    if (g === 'nữ' || g === 'nu' || g === 'female' || g === 'f') return 'Nữ';
+                    if (g === 'nam' || g === 'male' || g === 'm') return 'male';
+                    if (g === 'nữ' || g === 'nu' || g === 'female' || g === 'f') return 'female';
                     return gender;
                 };
 
@@ -292,7 +292,7 @@ class SurveyScenarioController {
                         if (!segment) {
                             // Create new segment with exact age
                             segment = segmentRepo.create({
-                                name: `Segment_${segmentData.location}_${segmentData.age}_${segmentData.gender}`,
+                                name: `${segmentData.location}_${segmentData.age}_${segmentData.gender}`,
                                 description: `Auto-generated segment for ${segmentData.location}, age ${segmentData.age}, ${segmentData.gender}`,
                                 location: segmentData.location,
                                 age: segmentData.age,
