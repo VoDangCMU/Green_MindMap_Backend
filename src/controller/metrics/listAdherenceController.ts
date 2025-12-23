@@ -19,8 +19,8 @@ const API_URL = "https://ai-greenmind.khoav4.com/list_adherence";
 
 const TodoItemSchema = z.object({
     id: z.string().optional(),
-    title: z.string(),
-    completed: z.boolean(),
+    task: z.string(),
+    done: z.boolean(),
     children: z.array(z.any()).optional(),
     parent: z.string().optional()
 });
@@ -167,14 +167,9 @@ class ListAdherenceController {
 
             const requestData = parsed.data;
 
-            // Transform todos to match AI API format (task/done instead of title/completed)
-            const transformedTodos = requestData.todos.map(todo => ({
-                task: todo.title,
-                done: todo.completed
-            }));
-
+            // Request already in correct format (task/done)
             const apiPayload = {
-                todos: transformedTodos,
+                todos: requestData.todos,
                 base_likert: requestData.base_likert,
                 weight: requestData.weight,
                 direction: requestData.direction,
